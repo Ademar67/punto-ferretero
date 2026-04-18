@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useRef } from "react"
@@ -10,8 +9,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useFirestore, useUser } from "@/firebase"
-import { doc, writeBatch, serverTimestamp, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, writeBatch, serverTimestamp } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, FileUp, Table as TableIcon, CheckCircle2, AlertTriangle, X } from "lucide-react"
 import {
@@ -54,7 +54,6 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
     reader.onload = (event) => {
       const text = event.target?.result as string
       const lines = text.split('\n')
-      const headers = lines[0].split(',')
       
       const parsed: RawProduct[] = lines.slice(1).filter(line => line.trim()).map(line => {
         const values = line.split(',')
@@ -79,7 +78,7 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
     setIsProcessing(true)
 
     try {
-      const batchSize = 400 // Firestore batch limit is 500
+      const batchSize = 400 
       let processed = 0
 
       while (processed < previewData.length) {
@@ -87,7 +86,6 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
         const chunk = previewData.slice(processed, processed + batchSize)
 
         for (const p of chunk) {
-          // Lógica de Upsert: Usar el código como ID determinístico para evitar duplicados
           const sanitizedCode = p.code.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
           const productRef = doc(db, "negocios", user.uid, "productos", sanitizedCode)
           
