@@ -37,6 +37,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const db = useFirestore()
   const { user } = useUser()
 
+  // Resetear estados al abrir el modal para asegurar una sesión limpia
   useEffect(() => {
     if (isOpen) {
       setAmountPaid("")
@@ -85,6 +86,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       
       const saleData = {
         ownerId: user.uid,
+        ownerEmail: user.email,
         userId: user.uid,
         userEmail: user.email,
         date: serverTimestamp(),
@@ -98,6 +100,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       
       batch.set(saleRef, saleData)
 
+      // Actualización de stock atómica para cada producto
       cartItems.forEach((item) => {
         const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
         batch.update(productRef, {
@@ -106,8 +109,13 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       })
 
       await batch.commit()
+      
+      // Limpieza de estado interno después de la venta exitosa
+      setAmountPaid("")
+      setMethod('efectivo')
       setIsProcessing(false)
-      onConfirm() 
+      
+      onConfirm() // Notifica al POS que la venta terminó
     } catch (error: any) {
       console.error("Error al procesar la venta:", error)
       setIsProcessing(false)

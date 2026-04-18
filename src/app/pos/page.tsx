@@ -24,6 +24,7 @@ export default function POSPage() {
   
   const db = useFirestore()
 
+  // Consulta memorizada de productos filtrada por negocio (ownerId)
   const productsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(
@@ -96,16 +97,22 @@ export default function POSPage() {
 
   const total = cart.reduce((acc, item) => acc + item.subtotal, 0)
 
+  // Función de limpieza y preparación después de una venta exitosa
   const handleFinishSale = () => {
     setIsPaymentOpen(false)
     setCart([])
     setSearchTerm("")
+    
     toast({
       title: "VENTA REALIZADA",
       description: `¡Transacción guardada con éxito!`,
       className: "bg-black text-primary border-primary border-2 font-black",
     })
-    searchInputRef.current?.focus()
+
+    // Asegura que el foco regrese al buscador principal tras cerrar el modal
+    setTimeout(() => {
+      searchInputRef.current?.focus()
+    }, 300)
   }
 
   const seedTestData = async () => {
@@ -113,11 +120,11 @@ export default function POSPage() {
     setIsSeeding(true)
     
     const testProducts = [
-      { name: "Martillo de Uña 16oz", code: "M-101", brand: "Truper", salePrice: 180, costPrice: 110, stock: 10, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, createdAt: serverTimestamp() },
-      { name: "Destornillador Phillips", code: "D-202", brand: "Stanley", salePrice: 45, costPrice: 25, stock: 20, minStock: 5, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, createdAt: serverTimestamp() },
-      { name: "Cinta Métrica 5m", code: "C-303", brand: "Lufkin", salePrice: 120, costPrice: 70, stock: 15, minStock: 3, unit: "pza", categoryId: "medicion", active: true, ownerId: user.uid, createdAt: serverTimestamp() },
-      { name: "Alicates de Presión", code: "A-404", brand: "Vise-Grip", salePrice: 250, costPrice: 150, stock: 8, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, createdAt: serverTimestamp() },
-      { name: "Juego de Llaves Allen", code: "LL-505", brand: "Bondhus", salePrice: 320, costPrice: 200, stock: 5, minStock: 1, unit: "set", categoryId: "herramientas", active: true, ownerId: user.uid, createdAt: serverTimestamp() }
+      { name: "Martillo de Uña 16oz", code: "M-101", brand: "Truper", salePrice: 180, costPrice: 110, stock: 10, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { name: "Destornillador Phillips", code: "D-202", brand: "Stanley", salePrice: 45, costPrice: 25, stock: 20, minStock: 5, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { name: "Cinta Métrica 5m", code: "C-303", brand: "Lufkin", salePrice: 120, costPrice: 70, stock: 15, minStock: 3, unit: "pza", categoryId: "medicion", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { name: "Alicates de Presión", code: "A-404", brand: "Vise-Grip", salePrice: 250, costPrice: 150, stock: 8, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { name: "Juego de Llaves Allen", code: "LL-505", brand: "Bondhus", salePrice: 320, costPrice: 200, stock: 5, minStock: 1, unit: "set", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
     ]
 
     try {
@@ -255,6 +262,7 @@ export default function POSPage() {
         </div>
       </div>
 
+      {/* CARRITO Y PANEL DE COBRO */}
       <div className="w-full lg:w-[500px] bg-white border-l-4 border-black flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.2)] relative z-20">
         <div className="p-8 border-b-2 border-black flex justify-between items-center bg-black">
           <div className="flex items-center gap-4">
