@@ -107,8 +107,9 @@ export default function POSPage() {
   }
 
   const handleUnknownCode = (code: string) => {
+    console.log("Código no encontrado:", code)
     playBeep(220, 0.3)
-    setPrefilledCode(code)
+    setPrefilledCode(code.trim().toUpperCase())
     toast({
       title: "PRODUCTO NO ENCONTRADO",
       description: `Código: "${code}"`,
@@ -133,6 +134,7 @@ export default function POSPage() {
 
   const handleCameraScan = (code: string) => {
     const normalizedCode = code.trim().toUpperCase()
+    console.log("Cámara detectó:", normalizedCode)
     const product = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
     if (product) {
       addToCart(product)
@@ -157,7 +159,9 @@ export default function POSPage() {
     setCart(prev => prev.filter(item => item.productId !== productId))
   }
 
-  const total = useMemo(() => cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0), [cart])
+  const total = useMemo(() => {
+    return cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0)
+  }, [cart])
 
   const playBeep = (freq = 880, dur = 0.15) => {
     try {
@@ -173,7 +177,7 @@ export default function POSPage() {
       oscillator.start();
       oscillator.stop(audioContext.currentTime + dur);
     } catch (e) { }
-  };
+  }
 
   const handleFinishSale = (saleData: Sale) => {
     playBeep(880, 0.2);
