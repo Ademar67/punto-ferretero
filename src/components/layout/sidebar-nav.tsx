@@ -44,41 +44,43 @@ const menuItems = [
 
 export function SidebarNav() {
   const pathname = usePathname()
-  const [activePath, setActivePath] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
+  // Prevenir errores de hidratación: solo activamos estados visuales después del montaje
   useEffect(() => {
-    // Sincronizamos la ruta activa solo después del montaje para evitar errores de hidratación
-    setActivePath(pathname)
-  }, [pathname])
+    setMounted(true)
+  }, [])
 
   return (
-    <Sidebar collapsible="icon" className="bg-black text-white border-r-0">
-      <SidebarHeader className="flex items-center justify-center py-8 border-b border-white/10">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(255,214,0,0.3)] group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 transition-all">
+    <Sidebar collapsible="icon" className="bg-black text-white border-none shadow-2xl">
+      <SidebarHeader className="flex items-center justify-center py-10 border-b border-white/5">
+        <div className="flex items-center gap-4 px-2">
+          <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-[0_0_30px_rgba(255,214,0,0.2)] group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 transition-all border-4 border-black">
             <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8">
               <Hammer className="w-6 h-6 text-primary fill-primary group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
             </div>
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="font-headline font-black text-xl tracking-tighter leading-none italic uppercase">
+            <span className="font-headline font-black text-2xl tracking-tighter leading-none italic uppercase text-white">
               PUNTO
             </span>
-            <span className="font-headline font-black text-xl tracking-tighter leading-none italic uppercase text-primary">
+            <span className="font-headline font-black text-2xl tracking-tighter leading-none italic uppercase text-primary">
               FERRETERO
             </span>
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent className="py-6">
+
+      <SidebarContent className="py-8 scrollbar-none">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-white/50 px-6 mb-2 group-data-[collapsible=icon]:hidden text-[10px] uppercase tracking-[0.2em] font-black">
-            Menú Principal
+          <SidebarGroupLabel className="text-white/30 px-6 mb-4 group-data-[collapsible=icon]:hidden text-[10px] uppercase tracking-[0.3em] font-black italic">
+            Módulos del Sistema
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="px-3 gap-2">
+            <SidebarMenu className="px-3 gap-1.5">
               {menuItems.map((item) => {
-                const isActive = activePath === item.href
+                // Durante SSR o antes de montar, ningún ítem se marca como activo para evitar el error
+                const isActive = mounted && pathname === item.href
                 
                 return (
                   <SidebarMenuItem key={item.href}>
@@ -87,15 +89,23 @@ export function SidebarNav() {
                       isActive={isActive}
                       tooltip={item.name}
                       className={cn(
-                        "h-12 px-4 transition-all duration-200 rounded-xl",
+                        "h-12 px-4 transition-all duration-200 rounded-xl group/btn border-none",
                         isActive 
-                          ? "bg-primary text-black font-black" 
-                          : "text-white/90 hover:text-white hover:bg-white/10"
+                          ? "bg-primary text-black font-black shadow-lg shadow-primary/20" 
+                          : "text-white/70 hover:text-white hover:bg-white/5"
                       )}
                     >
                       <Link href={item.href} className="flex items-center gap-3">
-                        <item.icon className={cn("w-5 h-5", isActive ? "text-black" : "text-primary")} />
-                        <span className="group-data-[collapsible=icon]:hidden uppercase text-xs tracking-tight font-bold">{item.name}</span>
+                        <item.icon className={cn(
+                          "w-5 h-5 transition-colors", 
+                          isActive ? "text-black" : "text-primary"
+                        )} />
+                        <span className="group-data-[collapsible=icon]:hidden uppercase text-[11px] tracking-tight font-black">
+                          {item.name}
+                        </span>
+                        {isActive && (
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-black animate-pulse group-data-[collapsible=icon]:hidden" />
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -105,12 +115,15 @@ export function SidebarNav() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-white/10 p-4">
+
+      <SidebarFooter className="p-4 border-t border-white/5 bg-black/40">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className="h-12 px-4 text-white/70 hover:text-red-500 hover:bg-red-500/10 transition-colors group-data-[collapsible=icon]:justify-center rounded-xl">
+            <SidebarMenuButton className="h-12 px-4 text-white/40 hover:text-red-500 hover:bg-red-500/10 transition-all rounded-xl border-none">
               <LogOut className="w-5 h-5" />
-              <span className="group-data-[collapsible=icon]:hidden font-black uppercase text-xs">Cerrar Sesión</span>
+              <span className="group-data-[collapsible=icon]:hidden font-black uppercase text-[10px] tracking-widest">
+                Cerrar Sesión
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
