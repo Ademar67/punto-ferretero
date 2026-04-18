@@ -1,22 +1,16 @@
+
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { Search, ShoppingCart, Package, Hammer, X } from "lucide-react"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { Search, ShoppingCart, Package, Hammer, X, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
 import { PaymentModal } from "@/components/pos/payment-modal"
 import { Product, SaleItem, PaymentMethod } from "@/types"
 import { useToast } from "@/hooks/use-toast"
-
-const MOCK_PRODUCTS: Product[] = [
-  { id: "1", ownerId: "1", name: "Martillo de Uña 16oz Pro", code: "M-001", categoryId: "1", brand: "Truper", salePrice: 150.00, costPrice: 90.00, stock: 15, minStock: 5, unit: "pza", active: true, createdAt: new Date() },
-  { id: "2", ownerId: "1", name: "Cinta Canela 48mm x 50m", code: "C-002", categoryId: "2", brand: "Tuk", salePrice: 35.50, costPrice: 18.00, stock: 42, minStock: 10, unit: "pza", active: true, createdAt: new Date() },
-  { id: "3", ownerId: "1", name: "Pintura Vinílica Blanca 19L", code: "P-003", categoryId: "3", brand: "Comex", salePrice: 1250.00, costPrice: 850.00, stock: 8, minStock: 2, unit: "cubeta", active: true, createdAt: new Date() },
-  { id: "4", ownerId: "1", name: "Tubo PVC 1/2' 6m Reforzado", code: "T-004", categoryId: "4", brand: "Generic", salePrice: 85.00, costPrice: 45.00, stock: 20, minStock: 5, unit: "tramo", active: true, createdAt: new Date() },
-  { id: "5", ownerId: "1", name: "Llave Inglesa 8' Cromada", code: "L-005", categoryId: "1", brand: "Stanley", salePrice: 210.00, costPrice: 130.00, stock: 12, minStock: 3, unit: "pza", active: true, createdAt: new Date() },
-  { id: "6", ownerId: "1", name: "Desarmador Phillips #2 x 4'", code: "D-006", categoryId: "1", brand: "Truper", salePrice: 45.00, costPrice: 25.00, stock: 30, minStock: 10, unit: "pza", active: true, createdAt: new Date() },
-]
+import { useFirestore, useCollection } from "@/firebase"
+import { collection, query, where, limit } from "firebase/firestore"
 
 export default function POSPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -25,6 +19,16 @@ export default function POSPage() {
   const [mounted, setMounted] = useState(false)
   const { toast } = useToast()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  
+  const db = useFirestore()
+
+  // Consulta de productos reales desde Firestore
+  const productsQuery = useMemo(() => {
+    if (!db) return null
+    return query(collection(db, "products"), where("active", "==", true), limit(50))
+  }, [db])
+
+  const { data: products, loading } = useCollection<Product>(productsQuery)
 
   useEffect(() => {
     setMounted(true)
@@ -32,10 +36,13 @@ export default function POSPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const filteredProducts = MOCK_PRODUCTS.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.code.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredProducts = useMemo(() => {
+    if (!products) return []
+    return products.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.code.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [products, searchTerm])
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -82,13 +89,13 @@ export default function POSPage() {
 
   const total = cart.reduce((acc, item) => acc + item.subtotal, 0)
 
-  const handleFinishSale = (method: PaymentMethod, amountPaid: number) => {
+  const handleFinishSale = () => {
     setIsPaymentOpen(false)
     setCart([])
     setSearchTerm("")
     toast({
       title: "VENTA REALIZADA",
-      description: `Total: $${total.toFixed(2)} (${method.toUpperCase()})`,
+      description: `¡Transacción guardada con éxito!`,
       className: "bg-black text-primary border-primary border-2 font-black",
     })
     searchInputRef.current?.focus()
@@ -123,40 +130,47 @@ export default function POSPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 pb-10">
-            {filteredProducts.map((product) => (
-              <button
-                key={`pos-prod-${product.id}`}
-                className="flex flex-col items-start p-5 gap-4 bg-white border-2 border-transparent hover:border-black hover:shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all rounded-2xl text-left active:scale-95 group relative overflow-hidden"
-                onClick={() => addToCart(product)}
-              >
-                <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 -mr-10 -mt-10 rounded-full group-hover:scale-150 transition-transform" />
-                
-                <div className="w-full flex justify-between items-center relative z-10">
-                  <span className="text-[9px] font-black text-white bg-black px-2 py-0.5 rounded uppercase tracking-[0.2em]">{product.code}</span>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-muted-foreground font-black uppercase">Stock</span>
-                    <span className={`text-xs font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-black'}`}>
-                      {product.stock} {product.unit}
-                    </span>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+              <Loader2 className="w-12 h-12 animate-spin" />
+              <p className="font-black uppercase italic">Cargando catálogo...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 pb-10">
+              {filteredProducts.map((product) => (
+                <button
+                  key={`pos-prod-${product.id}`}
+                  className="flex flex-col items-start p-5 gap-4 bg-white border-2 border-transparent hover:border-black hover:shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all rounded-2xl text-left active:scale-95 group relative overflow-hidden"
+                  onClick={() => addToCart(product)}
+                >
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 -mr-10 -mt-10 rounded-full group-hover:scale-150 transition-transform" />
+                  
+                  <div className="w-full flex justify-between items-center relative z-10">
+                    <span className="text-[9px] font-black text-white bg-black px-2 py-0.5 rounded uppercase tracking-[0.2em]">{product.code}</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-[10px] text-muted-foreground font-black uppercase">Stock</span>
+                      <span className={`text-xs font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-black'}`}>
+                        {product.stock} {product.unit}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex-1 w-full relative z-10">
-                  <h3 className="font-black text-sm text-black uppercase leading-tight line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
-                  <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1 italic">{product.brand}</p>
-                </div>
-                
-                <div className="w-full pt-4 border-t-2 border-dashed border-muted relative z-10">
-                  <div className="flex items-end justify-between">
-                    <span className="text-3xl font-black text-black tracking-tighter leading-none">${product.salePrice.toFixed(2)}</span>
-                    <Hammer className="w-5 h-5 text-muted/30 group-hover:text-primary transition-colors" />
+                  
+                  <div className="flex-1 w-full relative z-10">
+                    <h3 className="font-black text-sm text-black uppercase leading-tight line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+                    <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1 italic">{product.brand}</p>
                   </div>
-                </div>
-              </button>
-            ))}
-          </div>
-          {filteredProducts.length === 0 && (
+                  
+                  <div className="w-full pt-4 border-t-2 border-dashed border-muted relative z-10">
+                    <div className="flex items-end justify-between">
+                      <span className="text-3xl font-black text-black tracking-tighter leading-none">${product.salePrice.toFixed(2)}</span>
+                      <Hammer className="w-5 h-5 text-muted/30 group-hover:text-primary transition-colors" />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          {!loading && filteredProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/20 py-20">
               <Package className="w-32 h-32 mb-6" />
               <p className="text-3xl font-black uppercase italic tracking-tighter">Sin coincidencias</p>
@@ -211,6 +225,7 @@ export default function POSPage() {
         isOpen={isPaymentOpen}
         onClose={() => setIsPaymentOpen(false)}
         total={total}
+        cartItems={cart}
         onConfirm={handleFinishSale}
       />
     </div>

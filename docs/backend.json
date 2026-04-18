@@ -1,0 +1,52 @@
+
+{
+  "entities": {
+    "Product": {
+      "title": "Producto",
+      "description": "Representa un artículo en el inventario de la ferretería",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "brand": { "type": "string" },
+        "salePrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "unit": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["ownerId", "name", "code", "salePrice", "stock"]
+    },
+    "Sale": {
+      "title": "Venta",
+      "description": "Registro de una transacción de venta completada",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "items": { "type": "array" },
+        "total": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "amountPaid": { "type": "number" },
+        "change": { "type": "number" },
+        "userId": { "type": "string" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Catálogo de productos disponibles"
+    },
+    "/sales/{saleId}": {
+      "schema": "Sale",
+      "description": "Historial de transacciones de venta"
+    }
+  }
+}

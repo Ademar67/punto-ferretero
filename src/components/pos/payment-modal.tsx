@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -12,21 +13,28 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator } from "lucide-react"
-import { PaymentMethod } from "@/types"
+import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2 } from "lucide-react"
+import { PaymentMethod, SaleItem } from "@/types"
+import { useFirestore, useUser } from "@/firebase"
+import { collection, doc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
 
 interface PaymentModalProps {
   isOpen: boolean
   onClose: () => void
   total: number
-  onConfirm: (method: PaymentMethod, amount: number) => void
+  cartItems: SaleItem[]
+  onConfirm: () => void
 }
 
-export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModalProps) {
+export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: PaymentModalProps) {
   const [method, setMethod] = useState<PaymentMethod>('efectivo')
   const [amountPaid, setAmountPaid] = useState<string>(total.toString())
   const [change, setChange] = useState<number>(0)
+  const [isProcessing, setIsProcessing] = useState(false)
   const amountInputRef = useRef<HTMLInputElement>(null)
+  
+  const db = useFirestore()
+  const { user } = useUser()
 
   useEffect(() => {
     if (isOpen) {
@@ -42,16 +50,55 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
     setChange(Math.max(0, paid - total))
   }, [amountPaid, total])
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (!db || !user) return
+
     const paid = parseFloat(amountPaid) || total
     if (method === 'efectivo' && paid < total) {
       alert("El monto recibido no puede ser menor al total")
       return
     }
-    onConfirm(method, paid)
+
+    setIsProcessing(true)
+    
+    try {
+      const batch = writeBatch(db)
+      
+      // 1. Crear documento de venta
+      const saleRef = doc(collection(db, "sales"))
+      batch.set(saleRef, {
+        ownerId: user.uid,
+        userId: user.uid,
+        userEmail: user.email,
+        date: serverTimestamp(),
+        items: cartItems,
+        total: total,
+        paymentMethod: method,
+        amountPaid: paid,
+        change: change,
+        createdAt: serverTimestamp()
+      })
+
+      // 2. Actualizar stock para cada producto
+      cartItems.forEach((item) => {
+        const productRef = doc(db, "products", item.productId)
+        batch.update(productRef, {
+          stock: increment(-item.quantity)
+        })
+      })
+
+      // 3. Ejecutar lote (Atomic write)
+      await batch.commit()
+      
+      setIsProcessing(false)
+      onConfirm()
+    } catch (error) {
+      console.error("Error al procesar la venta:", error)
+      setIsProcessing(false)
+      alert("Hubo un error al guardar la venta. Intente de nuevo.")
+    }
   }
 
-  // Montos rápidos inteligentes basados en billetes reales
   const quickAmounts = Array.from(new Set([
     total,
     Math.ceil(total / 20) * 20,
@@ -59,11 +106,10 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
     Math.ceil(total / 100) * 100,
     Math.ceil(total / 200) * 200,
     Math.ceil(total / 500) * 500,
-    1000
   ])).filter(a => a >= total).sort((a, b) => a - b).slice(0, 5)
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={isProcessing ? undefined : onClose}>
       <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[3rem] shadow-2xl">
         <DialogHeader className="bg-black p-10 text-white relative border-b-8 border-primary">
           <div className="flex flex-col">
@@ -91,6 +137,7 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
               value={method} 
               onValueChange={(val) => setMethod(val as PaymentMethod)}
               className="grid grid-cols-2 sm:grid-cols-4 gap-4"
+              disabled={isProcessing}
             >
               {[
                 { id: 'efectivo', icon: Banknote, label: 'Efectivo' },
@@ -121,6 +168,7 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
                     <Button 
                       key={`btn-amt-${amt}`} 
                       variant="outline" 
+                      disabled={isProcessing}
                       onClick={() => setAmountPaid(amt.toString())}
                       className="whitespace-nowrap rounded-2xl border-2 border-black/10 font-black text-sm h-14 px-6 hover:bg-black hover:text-primary transition-all active:scale-90"
                     >
@@ -139,6 +187,7 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
                       id="amountPaid"
                       ref={amountInputRef}
                       type="number"
+                      disabled={isProcessing}
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(e.target.value)}
                       className="text-5xl h-24 font-black tracking-tighter rounded-[1.5rem] border-4 border-black focus-visible:ring-primary pl-12 bg-white shadow-xl"
@@ -157,16 +206,23 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
         </div>
 
         <DialogFooter className="p-10 bg-black/5 border-t border-muted flex flex-col sm:flex-row gap-4">
-          <Button variant="ghost" onClick={onClose} size="lg" className="flex-1 font-black uppercase tracking-[0.3em] text-xs h-20 rounded-2xl hover:bg-black hover:text-white transition-all">
-            Cancelar Venta
+          <Button variant="ghost" onClick={onClose} disabled={isProcessing} size="lg" className="flex-1 font-black uppercase tracking-[0.3em] text-xs h-20 rounded-2xl hover:bg-black hover:text-white transition-all">
+            Cancelar
           </Button>
           <Button 
             onClick={handleConfirm} 
+            disabled={isProcessing}
             size="lg" 
             className="flex-1 bg-black hover:bg-black/90 text-primary font-black text-2xl h-20 rounded-[1.5rem] shadow-2xl shadow-primary/20 flex items-center gap-3 transition-all active:scale-95 group"
           >
-            <CheckCircle2 className="w-6 h-6 group-hover:scale-125 transition-transform" />
-            FINALIZAR COBRO
+            {isProcessing ? (
+              <Loader2 className="w-8 h-8 animate-spin" />
+            ) : (
+              <>
+                <CheckCircle2 className="w-6 h-6 group-hover:scale-125 transition-transform" />
+                FINALIZAR COBRO
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
