@@ -272,7 +272,7 @@ export default function POSPage() {
       <Dialog open={!!lastSale} onOpenChange={(open) => !open && setLastSale(null)}>
         <DialogContent className="max-w-md border-none p-0 bg-transparent shadow-none">
           <DialogHeader className="sr-only">
-            <DialogTitle>Venta Exitosa</DialogTitle>
+            <DialogTitle>Venta completada exitosamente</DialogTitle>
           </DialogHeader>
           <div className="bg-white p-10 rounded-3xl shadow-2xl text-center space-y-6">
             <div className="flex justify-center">
