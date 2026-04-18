@@ -5,7 +5,7 @@ import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Punto Ferretero - Tu ferretería bajo control',
+  title: 'Punto Ferretero',
   description: 'Sistema administrativo y punto de venta para ferreterías modernas.',
 };
 

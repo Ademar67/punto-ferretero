@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
 import { 
   LayoutDashboard, 
   ShoppingCart, 
@@ -43,6 +44,11 @@ const menuItems = [
 
 export function SidebarNav() {
   const pathname = usePathname()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <Sidebar collapsible="icon" className="bg-black text-white border-r-0">
@@ -70,26 +76,31 @@ export function SidebarNav() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="px-3 gap-2">
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.href}
-                    tooltip={item.name}
-                    className={cn(
-                      "h-12 px-4 transition-all duration-200 rounded-xl",
-                      pathname === item.href 
-                        ? "bg-primary text-black font-black" 
-                        : "text-white/90 hover:text-white hover:bg-white/10"
-                    )}
-                  >
-                    <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-black" : "text-primary")} />
-                      <span className="group-data-[collapsible=icon]:hidden uppercase text-xs tracking-tight font-bold">{item.name}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {menuItems.map((item) => {
+                // Evitamos errores de hidratación desactivando el estado activo hasta que el cliente se monte
+                const isActive = mounted ? pathname === item.href : false
+                
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive}
+                      tooltip={item.name}
+                      className={cn(
+                        "h-12 px-4 transition-all duration-200 rounded-xl",
+                        isActive 
+                          ? "bg-primary text-black font-black" 
+                          : "text-white/90 hover:text-white hover:bg-white/10"
+                      )}
+                    >
+                      <Link href={item.href} className="flex items-center gap-3">
+                        <item.icon className={cn("w-5 h-5", isActive ? "text-black" : "text-primary")} />
+                        <span className="group-data-[collapsible=icon]:hidden uppercase text-xs tracking-tight font-bold">{item.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
