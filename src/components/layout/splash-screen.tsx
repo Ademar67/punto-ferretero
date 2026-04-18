@@ -11,16 +11,23 @@ interface SplashScreenProps {
 
 export function SplashScreen({ isLoading }: SplashScreenProps) {
   const [show, setShow] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!isLoading) {
-      // Mantenemos la pantalla un poco más para que la animación se aprecie
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && mounted) {
       const timer = setTimeout(() => {
         setShow(false);
       }, 800); 
       return () => clearTimeout(timer);
     }
-  }, [isLoading]);
+  }, [isLoading, mounted]);
+
+  // Si no está montado en el cliente, no renderizamos nada para evitar hydration mismatch
+  if (!mounted) return null;
 
   return (
     <AnimatePresence>
@@ -30,11 +37,9 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
           exit={{ opacity: 0, transition: { duration: 0.8, ease: "easeInOut" } }}
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black overflow-hidden"
         >
-          {/* Fondo con gradiente radial industrial sutil */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,214,0,0.08)_0%,rgba(0,0,0,1)_75%)]" />
           
           <div className="relative flex flex-col items-center gap-8">
-            {/* Contenedor del Logo con Elevación Visual */}
             <motion.div
               initial={{ scale: 0.85, opacity: 0, rotate: -5 }}
               animate={{ 
@@ -49,7 +54,6 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
                 <Hammer className="w-16 h-16 text-black -rotate-3" />
               </div>
               
-              {/* Resplandor pulsante premium */}
               <motion.div
                 animate={{ 
                   opacity: [0.2, 0.5, 0.2],
@@ -60,7 +64,6 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
               />
             </motion.div>
 
-            {/* Identidad de Marca */}
             <div className="text-center space-y-4">
               <motion.div
                 initial={{ y: 20, opacity: 0 }}
@@ -92,7 +95,6 @@ export function SplashScreen({ isLoading }: SplashScreenProps) {
               </motion.div>
             </div>
 
-            {/* Indicador de Carga Minimalista */}
             <motion.div
               initial={{ width: 0, opacity: 0 }}
               animate={{ 

@@ -2,12 +2,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import './globals.css';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider, useUser } from '@/firebase';
-import { SplashScreen } from '@/components/layout/splash-screen';
+
+// Importación dinámica con SSR desactivado para evitar errores de hidratación
+const SplashScreen = dynamic(
+  () => import('@/components/layout/splash-screen').then((mod) => mod.SplashScreen),
+  { ssr: false }
+);
 
 function AppContent({ children }: { children: React.ReactNode }) {
   const { isUserLoading } = useUser();
