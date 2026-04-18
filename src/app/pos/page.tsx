@@ -2,12 +2,13 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle, Camera, Smartphone, Wifi } from "lucide-react"
+import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle, Camera, Smartphone, Wifi, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
 import { PaymentModal } from "@/components/pos/payment-modal"
 import { BarcodeScanner } from "@/components/pos/barcode-scanner"
+import { AddProductDialog } from "@/components/productos/add-product-dialog"
 import { Product, SaleItem, RemoteScan } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
@@ -15,6 +16,7 @@ import { collection, query, where, limit, addDoc, serverTimestamp, onSnapshot, d
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { ToastAction } from "@/components/ui/toast"
 
 export default function POSPage() {
   const { user, isUserLoading } = useUser()
@@ -22,6 +24,8 @@ export default function POSPage() {
   const [cart, setCart] = useState<SaleItem[]>([])
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
   const [isScannerOpen, setIsScannerOpen] = useState(false)
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false)
+  const [prefilledCode, setPrefilledCode] = useState("")
   const [mounted, setMounted] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const { toast } = useToast()
@@ -60,11 +64,7 @@ export default function POSPage() {
               className: "bg-black text-primary border-primary border-2 font-black",
             })
           } else {
-            toast({
-              title: "ERROR REMOTO",
-              description: `Código "${normalizedCode}" no existe.`,
-              variant: "destructive",
-            })
+            handleUnknownCode(normalizedCode)
           }
           
           // "Consumir" el escaneo eliminándolo de Firestore
@@ -80,13 +80,13 @@ export default function POSPage() {
     setMounted(true)
     if (user && !isUserLoading) {
       const focusInterval = setInterval(() => {
-        if (document.activeElement?.tagName !== 'INPUT' && !isPaymentOpen && !isScannerOpen) {
+        if (document.activeElement?.tagName !== 'INPUT' && !isPaymentOpen && !isScannerOpen && !isAddProductOpen) {
           searchInputRef.current?.focus()
         }
       }, 1000)
       return () => clearInterval(focusInterval)
     }
-  }, [user, isUserLoading, isPaymentOpen, isScannerOpen])
+  }, [user, isUserLoading, isPaymentOpen, isScannerOpen, isAddProductOpen])
 
   const filteredProducts = useMemo(() => {
     if (!products) return []
@@ -128,6 +128,25 @@ export default function POSPage() {
     setTimeout(() => searchInputRef.current?.focus(), 10)
   }
 
+  const handleUnknownCode = (code: string) => {
+    playBeep(220, 0.3)
+    setPrefilledCode(code)
+    toast({
+      title: "PRODUCTO NO ENCONTRADO",
+      description: `El código "${code}" no existe en el catálogo.`,
+      variant: "destructive",
+      action: (
+        <ToastAction 
+          altText="Crear producto" 
+          className="bg-white text-black font-black"
+          onClick={() => setIsAddProductOpen(true)}
+        >
+          <Plus className="w-4 h-4 mr-1" /> CREAR
+        </ToastAction>
+      ),
+    })
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchTerm.trim()) {
       e.preventDefault()
@@ -138,13 +157,7 @@ export default function POSPage() {
         addToCart(exactMatch)
         setSearchTerm("")
       } else {
-        playBeep(220, 0.3)
-        toast({
-          title: "NO ENCONTRADO",
-          description: `Código "${normalizedCode}" no existe.`,
-          variant: "destructive",
-          className: "bg-red-600 text-white font-black",
-        })
+        handleUnknownCode(normalizedCode)
         setSearchTerm("")
       }
     }
@@ -158,13 +171,8 @@ export default function POSPage() {
       addToCart(product)
       setIsScannerOpen(false)
     } else {
-      playBeep(220, 0.3)
-      toast({
-        title: "PRODUCTO DESCONOCIDO",
-        description: `No existe producto con código "${normalizedCode}".`,
-        variant: "destructive",
-        className: "bg-red-600 text-white font-black",
-      })
+      setIsScannerOpen(false)
+      handleUnknownCode(normalizedCode)
     }
   }
 
@@ -366,6 +374,15 @@ export default function POSPage() {
         isOpen={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
         onScan={handleCameraScan}
+      />
+
+      <AddProductDialog 
+        isOpen={isAddProductOpen} 
+        onClose={() => {
+          setIsAddProductOpen(false)
+          setPrefilledCode("")
+        }} 
+        initialCode={prefilledCode}
       />
     </div>
   )

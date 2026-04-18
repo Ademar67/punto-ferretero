@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -46,9 +47,10 @@ interface AddProductDialogProps {
   isOpen: boolean;
   onClose: () => void;
   productToEdit?: Product;
+  initialCode?: string;
 }
 
-export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductDialogProps) {
+export function AddProductDialog({ isOpen, onClose, productToEdit, initialCode }: AddProductDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { user } = useUser()
   const db = useFirestore()
@@ -84,6 +86,19 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
         unidad: productToEdit.unidad,
         activo: productToEdit.activo,
       })
+    } else if (initialCode) {
+      form.reset({
+        nombre: "",
+        codigo: initialCode.toUpperCase(),
+        marca: "Genérico",
+        categoriaId: "general",
+        precioCompra: 0,
+        precioVenta: 0,
+        stockActual: 0,
+        stockMinimo: 2,
+        unidad: "pza",
+        activo: true,
+      })
     } else {
       form.reset({
         nombre: "",
@@ -98,7 +113,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
         activo: true,
       })
     }
-  }, [productToEdit, form, isOpen])
+  }, [productToEdit, initialCode, form, isOpen])
 
   const onSubmit = async (values: ProductFormValues) => {
     if (!db || !user?.uid) return
@@ -109,11 +124,11 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
       if (!productToEdit) {
         const q = query(
           collection(db, "negocios", user.uid, "productos"),
-          where("codigo", "==", values.codigo.trim()),
+          where("codigo", "==", values.codigo.trim().toUpperCase()),
           limit(1)
         )
         const snapshot = await getDocs(q)
-        if (!snapshot.empty) {
+        if (!snapshot.empty && !productToEdit) {
           form.setError("codigo", { message: "Este código ya existe en tu catálogo" })
           setIsSubmitting(false)
           return
@@ -126,6 +141,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
       const finalData = {
         ...values,
         id: docId,
+        codigo: values.codigo.trim().toUpperCase(),
         ownerId: user.uid,
         ownerEmail: user.email,
         updatedAt: serverTimestamp(),
@@ -141,7 +157,19 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
       })
 
       if (!productToEdit) {
-        form.reset()
+        form.reset({
+          nombre: "",
+          codigo: "",
+          marca: "Genérico",
+          categoriaId: "general",
+          precioCompra: 0,
+          precioVenta: 0,
+          stockActual: 0,
+          stockMinimo: 2,
+          unidad: "pza",
+          activo: true,
+        })
+        onClose()
       } else {
         onClose()
       }
