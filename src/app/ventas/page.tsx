@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState } from "react"
-import { Search, Eye, Printer, FileDown, ReceiptText, Calendar as CalendarIcon, Ban, Loader2, AlertTriangle } from "lucide-react"
+import { Search, Eye, Printer, FileDown, ReceiptText, Calendar as CalendarIcon, Ban, Loader2, AlertTriangle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -24,6 +25,7 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { query, collection, where, orderBy, writeBatch, doc, serverTimestamp, increment } from "firebase/firestore"
 import { Sale } from "@/types"
@@ -31,6 +33,7 @@ import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
+import { TicketView } from "@/components/pos/ticket-view"
 
 export default function VentasPage() {
   const { user } = useUser()
@@ -38,10 +41,10 @@ export default function VentasPage() {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [cancellingSale, setCancellingSale] = useState<Sale | null>(null)
+  const [viewingTicket, setViewingTicket] = useState<Sale | null>(null)
   const [cancelReason, setCancelReason] = useState("")
   const [isProcessingCancel, setIsProcessingCancel] = useState(false)
 
-  // Consulta de ventas reales desde Firestore
   const salesQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(
@@ -65,7 +68,6 @@ export default function VentasPage() {
       const batch = writeBatch(db)
       const saleRef = doc(db, "negocios", user.uid, "ventas", cancellingSale.id)
 
-      // 1. Actualizar estado de la venta
       batch.update(saleRef, {
         status: 'cancelada',
         cancelledAt: serverTimestamp(),
@@ -74,11 +76,24 @@ export default function VentasPage() {
         cancelReason: cancelReason || "Sin motivo especificado"
       })
 
-      // 2. Revertir inventario para cada item
       cancellingSale.items.forEach(item => {
         const productRef = doc(db, "negocios", user.uid!, "productos", item.productId)
         batch.update(productRef, {
-          stock: increment(item.quantity)
+          stockActual: increment(Number(item.quantity))
+        })
+        
+        const movementRef = doc(collection(db, "negocios", user.uid!, "movimientosInventario"))
+        batch.set(movementRef, {
+          ownerId: user.uid,
+          productId: item.productId,
+          productName: item.name,
+          codigo: item.productId, // Idealmente el código real
+          type: 'cancelacion',
+          quantity: item.quantity,
+          reason: `Cancelación de venta folio ${cancellingSale.folio}`,
+          date: serverTimestamp(),
+          userId: user.uid,
+          userEmail: user.email
         })
       })
 
@@ -127,14 +142,14 @@ export default function VentasPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="h-12 px-6 border-2 border-black font-black uppercase tracking-tighter hover:bg-black hover:text-white transition-all">
-            <FileDown className="w-5 h-5 mr-2" /> Exportar reporte
+          <Button variant="outline" className="h-12 px-6 border-2 border-black font-black uppercase tracking-tighter hover:bg-black hover:text-white transition-all rounded-xl">
+            <FileDown className="w-5 h-5 mr-2" /> Reporte Mensual
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-2 bg-primary/5">
             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Ventas Brutas</CardTitle>
           </CardHeader>
@@ -144,7 +159,7 @@ export default function VentasPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-2 bg-primary/5">
             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tickets Activos</CardTitle>
           </CardHeader>
@@ -152,7 +167,7 @@ export default function VentasPage() {
             <div className="text-3xl font-black tracking-tight">{sales?.filter(s => s.status === 'completada').length || 0}</div>
           </CardContent>
         </Card>
-        <Card className="border-none shadow-sm bg-white overflow-hidden">
+        <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-2 bg-primary/5">
             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Anulaciones</CardTitle>
           </CardHeader>
@@ -184,10 +199,9 @@ export default function VentasPage() {
             <TableRow className="hover:bg-black border-none">
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Folio</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Fecha / Hora</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Productos</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Items</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Total</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Método Pago</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Estado</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Pago</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -196,55 +210,45 @@ export default function VentasPage() {
               <TableRow 
                 key={sale.id} 
                 className={cn(
-                  "hover:bg-primary/5 border-border/50",
-                  sale.status === 'cancelada' && "bg-red-50/50 opacity-60"
+                  "hover:bg-primary/5 border-border/50 transition-colors",
+                  sale.status === 'cancelada' && "bg-red-50/30 grayscale-[0.5]"
                 )}
               >
                 <TableCell className={cn("font-black", sale.status === 'cancelada' ? "line-through text-red-400" : "text-black")}>
                   {sale.folio}
                 </TableCell>
-                <TableCell className="font-medium">
-                  {sale.date?.seconds ? format(new Date(sale.date.seconds * 1000), "dd MMM, HH:mm", { locale: es }) : "Pendiente"}
+                <TableCell className="font-medium text-xs">
+                  {sale.date?.seconds ? format(new Date(sale.date.seconds * 1000), "dd MMM, HH:mm", { locale: es }) : "..."}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className="bg-black/5 text-black font-bold border-none uppercase text-[9px]">
-                    {sale.items.reduce((acc, item) => acc + item.quantity, 0)} items
+                  <Badge variant="secondary" className="bg-black/5 text-black font-black text-[9px] px-2">
+                    {sale.items.reduce((acc, item) => acc + Number(item.quantity), 0)}
                   </Badge>
                 </TableCell>
-                <TableCell className={cn("font-black text-xl", sale.status === 'cancelada' ? "text-red-300" : "text-black")}>
+                <TableCell className={cn("font-black text-lg", sale.status === 'cancelada' ? "text-red-300" : "text-black")}>
                   ${sale.total.toFixed(2)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize border-2 border-primary text-black font-black text-[9px] px-3">
+                  <Badge className={cn("uppercase text-[9px] font-black px-3", sale.status === 'cancelada' ? "bg-muted" : "bg-primary text-black")}>
                     {sale.paymentMethod}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <Badge 
-                    className={cn(
-                      "font-black text-[9px] uppercase px-3 py-1",
-                      sale.status === 'completada' ? "bg-green-500" : "bg-red-600"
-                    )}
-                  >
-                    {sale.status}
-                  </Badge>
-                </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" className="hover:bg-primary hover:text-black rounded-lg">
-                      <Eye className="w-5 h-5" />
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-black hover:text-white rounded-lg" onClick={() => setViewingTicket(sale)}>
+                      <Eye className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="hover:bg-primary hover:text-black rounded-lg">
-                      <Printer className="w-5 h-5" />
+                    <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-black hover:text-white rounded-lg" onClick={() => setViewingTicket(sale)}>
+                      <Printer className="w-4 h-4" />
                     </Button>
                     {sale.status === 'completada' && (
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="hover:bg-red-600 hover:text-white rounded-lg transition-colors"
+                        className="h-9 w-9 hover:bg-red-600 hover:text-white rounded-lg"
                         onClick={() => setCancellingSale(sale)}
                       >
-                        <Ban className="w-5 h-5" />
+                        <Ban className="w-4 h-4" />
                       </Button>
                     )}
                   </div>
@@ -255,15 +259,14 @@ export default function VentasPage() {
         </Table>
         {filteredSales.length === 0 && (
           <div className="p-20 text-center flex flex-col items-center gap-4 text-muted-foreground">
-            <ReceiptText className="w-16 h-16 opacity-20" />
-            <p className="font-black uppercase italic">Sin registros de ventas</p>
+            <ReceiptText className="w-16 h-16 opacity-10" />
+            <p className="font-black uppercase italic tracking-tighter">Historial Vacío</p>
           </div>
         )}
       </div>
 
-      {/* DIÁLOGO DE CONFIRMACIÓN PARA CANCELACIÓN */}
       <AlertDialog open={!!cancellingSale} onOpenChange={(open) => !open && setCancellingSale(null)}>
-        <AlertDialogContent className="rounded-3xl border-4 border-black">
+        <AlertDialogContent className="rounded-3xl border-4 border-black font-body">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
               <AlertTriangle className="text-red-600 w-8 h-8" />
@@ -298,6 +301,22 @@ export default function VentasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!viewingTicket} onOpenChange={(open) => !open && setViewingTicket(null)}>
+        <DialogContent className="max-w-sm border-none p-0 bg-transparent shadow-none">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl relative">
+            <Button variant="ghost" size="icon" className="absolute right-2 top-2 rounded-full" onClick={() => setViewingTicket(null)}>
+              <X className="w-4 h-4" />
+            </Button>
+            {viewingTicket && <TicketView sale={viewingTicket} />}
+            <div className="mt-6">
+              <Button className="w-full bg-black text-primary font-black uppercase italic tracking-tighter h-14 rounded-xl" onClick={() => window.print()}>
+                <Printer className="w-5 h-5 mr-2" /> IMPRIMIR TICKET
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
