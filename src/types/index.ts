@@ -81,11 +81,13 @@ export interface InventoryMovement {
   ownerId: string;
   productId: string;
   productName: string;
+  codigo: string;
   type: InventoryMovementType;
   quantity: number;
   reason: string;
   date: any;
   userId: string;
+  userEmail: string;
 }
 
 export interface CashRegisterSession {
