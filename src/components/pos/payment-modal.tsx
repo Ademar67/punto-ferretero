@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2 } from "lucide-react"
+import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2, AlertCircle } from "lucide-react"
 import { PaymentMethod, SaleItem } from "@/types"
 import { useFirestore, useUser } from "@/firebase"
 import { collection, doc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
@@ -37,7 +37,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const db = useFirestore()
   const { user } = useUser()
 
-  // Auto-focus al abrir el modal
   useEffect(() => {
     if (isOpen) {
       setAmountPaid("")
@@ -49,11 +48,16 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     }
   }, [isOpen])
 
-  // Cálculo automático del cambio
   const change = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0
     return Math.max(0, paid - total)
   }, [amountPaid, total])
+
+  const isInsufficientAmount = useMemo(() => {
+    if (method !== 'efectivo' || !amountPaid) return false
+    const paid = parseFloat(amountPaid) || 0
+    return paid < total
+  }, [method, amountPaid, total])
 
   const handleConfirm = async () => {
     if (!db || !user?.uid) {
@@ -94,7 +98,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       
       batch.set(saleRef, saleData)
 
-      // Descuento atómico de inventario
       cartItems.forEach((item) => {
         const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
         batch.update(productRef, {
@@ -116,7 +119,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     }
   }
 
-  // Sugerencias de montos redondeados para rapidez
   const quickAmounts = useMemo(() => {
     const suggestions = [
       total,
@@ -134,7 +136,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   return (
     <Dialog open={isOpen} onOpenChange={isProcessing ? undefined : onClose}>
       <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none rounded-[3rem] shadow-2xl font-body">
-        {/* ENCABEZADO: EL TOTAL ES EL REY */}
         <DialogHeader className="bg-black p-10 text-white relative border-b-8 border-primary">
           <div className="flex flex-col mb-4">
             <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px] italic">Terminal de Cobro</span>
@@ -152,7 +153,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
         </DialogHeader>
 
         <div className="p-10 space-y-10 bg-white">
-          {/* SELECCIÓN DE MÉTODO */}
           <div className="space-y-4">
             <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-black text-primary flex items-center justify-center text-[9px]">1</span>
@@ -184,18 +184,22 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
             </RadioGroup>
           </div>
 
-          {/* FLUJO DE EFECTIVO */}
           {method === 'efectivo' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
-                {/* COLUMNA: RECIBIDO */}
                 <div className="space-y-4">
-                  <Label htmlFor="amountPaid" className="font-black text-[12px] uppercase tracking-widest text-black/60 italic flex justify-between">
+                  <Label htmlFor="amountPaid" className={cn(
+                    "font-black text-[12px] uppercase tracking-widest italic flex justify-between",
+                    isInsufficientAmount ? "text-red-600" : "text-black/60"
+                  )}>
                     <span>Monto Recibido</span>
-                    <span className="text-primary-foreground/30 font-black">F4</span>
+                    {isInsufficientAmount && <AlertCircle className="w-4 h-4" />}
                   </Label>
                   <div className="relative group">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-4xl font-black text-black/20 group-focus-within:text-black transition-colors">$</span>
+                    <span className={cn(
+                      "absolute left-6 top-1/2 -translate-y-1/2 text-4xl font-black transition-colors",
+                      isInsufficientAmount ? "text-red-600" : "text-black/20 group-focus-within:text-black"
+                    )}>$</span>
                     <Input 
                       id="amountPaid"
                       ref={amountInputRef}
@@ -204,30 +208,39 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                       disabled={isProcessing}
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(e.target.value)}
-                      className="text-6xl h-28 font-black tracking-tighter rounded-[2rem] border-4 border-black focus-visible:ring-primary focus-visible:ring-offset-4 pl-14 bg-white shadow-[0_20px_40px_rgba(0,0,0,0.1)] transition-all"
+                      className={cn(
+                        "text-6xl h-28 font-black tracking-tighter rounded-[2rem] border-4 focus-visible:ring-offset-4 pl-14 bg-white shadow-[0_20px_40px_rgba(0,0,0,0.1)] transition-all",
+                        isInsufficientAmount 
+                          ? "border-red-600 focus-visible:ring-red-600" 
+                          : "border-black focus-visible:ring-primary"
+                      )}
                     />
                   </div>
-                  {/* SUGERENCIAS RÁPIDAS */}
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                    {quickAmounts.map((amt) => (
-                      <Button 
-                        key={`btn-amt-${amt}`} 
-                        variant="outline" 
-                        type="button"
-                        disabled={isProcessing}
-                        onClick={() => {
-                          setAmountPaid(amt.toString());
-                          amountInputRef.current?.focus();
-                        }}
-                        className="flex-1 rounded-xl border-2 border-black/10 font-black text-xs h-12 hover:bg-black hover:text-primary transition-all active:scale-90"
-                      >
-                        $ {amt}
-                      </Button>
-                    ))}
-                  </div>
+                  {isInsufficientAmount ? (
+                    <p className="text-red-600 font-black text-[10px] uppercase tracking-widest animate-pulse flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Falta: $ {(total - parseFloat(amountPaid)).toFixed(2)}
+                    </p>
+                  ) : (
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                      {quickAmounts.map((amt) => (
+                        <Button 
+                          key={`btn-amt-${amt}`} 
+                          variant="outline" 
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={() => {
+                            setAmountPaid(amt.toString());
+                            amountInputRef.current?.focus();
+                          }}
+                          className="flex-1 rounded-xl border-2 border-black/10 font-black text-xs h-12 hover:bg-black hover:text-primary transition-all active:scale-90"
+                        >
+                          $ {amt}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* COLUMNA: CAMBIO */}
                 <div className="space-y-4">
                   <Label className="font-black text-[12px] uppercase tracking-widest text-green-600 italic">Cambio a Devolver</Label>
                   <div className={cn(
@@ -240,7 +253,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                     </div>
                   </div>
                   <p className="text-center text-[10px] font-black text-muted-foreground uppercase italic tracking-widest">
-                    {amountPaid ? "Verifica el efectivo en caja" : "Ingresa el pago del cliente"}
+                    {amountPaid && !isInsufficientAmount ? "Verifica el efectivo en caja" : "Ingresa el pago del cliente"}
                   </p>
                 </div>
               </div>
@@ -255,7 +268,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
           )}
         </div>
 
-        {/* ACCIÓN FINAL */}
         <DialogFooter className="p-10 bg-black/5 border-t border-muted flex flex-col sm:flex-row gap-4">
           <Button 
             variant="ghost" 
@@ -268,9 +280,14 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
           </Button>
           <Button 
             onClick={handleConfirm} 
-            disabled={isProcessing || (method === 'efectivo' && (!amountPaid || parseFloat(amountPaid) < total))}
+            disabled={isProcessing || isInsufficientAmount || (method === 'efectivo' && !amountPaid)}
             size="lg" 
-            className="flex-[2] bg-primary hover:bg-black hover:text-primary text-black font-black text-3xl h-24 rounded-[2rem] shadow-[0_15px_40px_rgba(255,214,0,0.3)] flex flex-col items-center justify-center transition-all active:scale-95 group border-4 border-black"
+            className={cn(
+              "flex-[2] text-black font-black text-3xl h-24 rounded-[2rem] flex flex-col items-center justify-center transition-all active:scale-95 group border-4 border-black",
+              isInsufficientAmount 
+                ? "bg-muted cursor-not-allowed opacity-50" 
+                : "bg-primary hover:bg-black hover:text-primary shadow-[0_15px_40px_rgba(255,214,0,0.3)]"
+            )}
           >
             {isProcessing ? (
               <Loader2 className="w-10 h-10 animate-spin" />
