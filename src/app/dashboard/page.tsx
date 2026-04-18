@@ -13,18 +13,17 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
-  // Mock data for initial view
   const stats = [
-    { label: "Ventas Hoy", value: "$12,450.00", icon: TrendingUp, color: "text-green-500", trend: "+12% vs ayer" },
-    { label: "Tickets Hoy", value: "24", icon: Receipt, color: "text-blue-500", trend: "+5 vs ayer" },
-    { label: "Ventas Mes", value: "$245,670.00", icon: ShoppingCart, color: "text-orange-500", trend: "En meta" },
-    { label: "Stock Bajo", value: "8", icon: AlertTriangle, color: "text-red-500", trend: "Requiere atención" },
+    { label: "Ventas Hoy", value: "$12,450.00", icon: TrendingUp, color: "text-green-600", trend: "+12% vs ayer" },
+    { label: "Tickets Hoy", value: "24", icon: Receipt, color: "text-primary", trend: "+5 vs ayer" },
+    { label: "Ventas Mes", value: "$245,670.00", icon: ShoppingCart, color: "text-blue-600", trend: "En meta" },
+    { label: "Stock Bajo", value: "8", icon: AlertTriangle, color: "text-red-600", trend: "Requiere atención" },
   ]
 
   const quickActions = [
-    { name: "Nueva Venta", href: "/pos", icon: Plus, color: "bg-accent text-accent-foreground" },
-    { name: "Ver Productos", href: "/productos", icon: Package, color: "bg-primary text-primary-foreground" },
-    { name: "Reportes", href: "/reportes", icon: TrendingUp, color: "bg-slate-800 text-white" },
+    { name: "Nueva Venta", href: "/pos", icon: Plus, color: "bg-primary text-black" },
+    { name: "Ver Productos", href: "/productos", icon: Package, color: "bg-white text-black border border-border" },
+    { name: "Reportes", href: "/reportes", icon: TrendingUp, color: "bg-black text-white" },
   ]
 
   const lowStockItems = [
@@ -34,32 +33,34 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-8 p-6 lg:p-10">
+    <div className="flex flex-col gap-8 p-6 lg:p-10 bg-[#f8f9fa] min-h-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bienvenido de nuevo</h1>
-          <p className="text-muted-foreground">Aquí tienes un resumen de tu ferretería para hoy.</p>
+          <h1 className="text-4xl font-black tracking-tight text-black">Bienvenido a <span className="text-primary">Punto Ferretero</span></h1>
+          <p className="text-muted-foreground mt-1">Tu ferretería está operando correctamente hoy.</p>
         </div>
         <div className="flex gap-3">
-          <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground font-bold shadow-lg">
-            <Link href="/pos" className="flex items-center gap-2">
-              <ShoppingCart className="w-5 h-5" />
-              Nueva Venta (POS)
+          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-black font-black shadow-xl h-14 px-8 rounded-xl transition-all hover:scale-105 active:scale-95">
+            <Link href="/pos" className="flex items-center gap-3">
+              <ShoppingCart className="w-6 h-6" />
+              NUEVA VENTA
             </Link>
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.label} className="border-none shadow-sm hover:shadow-md transition-shadow">
+          <Card key={stat.label} className="border-none shadow-sm hover:shadow-xl transition-all group cursor-default bg-white">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{stat.label}</CardTitle>
+              <div className={cn("p-2 rounded-lg bg-muted group-hover:bg-primary group-hover:text-black transition-colors")}>
+                <stat.icon className="h-4 w-4" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <div className="text-3xl font-black">{stat.value}</div>
+              <p className={cn("text-xs font-bold mt-2", stat.trend.includes('+') ? "text-green-600" : "text-muted-foreground")}>
                 {stat.trend}
               </p>
             </CardContent>
@@ -67,74 +68,82 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="col-span-1 lg:col-span-2 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle>Productos más Vendidos (Semana)</CardTitle>
+      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="col-span-1 lg:col-span-2 border-none shadow-sm bg-white overflow-hidden">
+          <CardHeader className="border-b border-border/50">
+            <CardTitle className="text-xl font-black">Productos más Vendidos</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                <div key={i} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-black text-primary flex items-center justify-center font-black">
                       {i}
                     </div>
-                    <span className="font-medium">Producto Ejemplo #{i}</span>
+                    <div>
+                      <p className="font-bold text-black">Producto de Alta Rotación #{i}</p>
+                      <p className="text-xs text-muted-foreground">Categoría Herramientas</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-8">
-                    <span className="text-sm text-muted-foreground">42 ventas</span>
-                    <span className="font-bold">$1,240.00</span>
+                  <div className="text-right">
+                    <p className="font-black text-lg text-black">$1,240.00</p>
+                    <p className="text-xs font-bold text-primary uppercase">42 vendidos</p>
                   </div>
                 </div>
               ))}
             </div>
-            <Button variant="ghost" className="w-full mt-4 text-primary" asChild>
-              <Link href="/reportes">Ver reporte completo <ArrowRight className="ml-2 w-4 h-4" /></Link>
-            </Button>
+            <div className="p-4 bg-muted/20">
+              <Button variant="ghost" className="w-full font-bold hover:bg-primary hover:text-black transition-all" asChild>
+                <Link href="/reportes">Ver reporte completo <ArrowRight className="ml-2 w-4 h-4" /></Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm border-l-4 border-l-red-500">
+        <Card className="border-none shadow-sm border-t-4 border-t-red-600 bg-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-600">
-              <AlertTriangle className="w-5 h-5" />
-              Stock Bajo
+            <CardTitle className="flex items-center gap-2 text-red-600 font-black italic">
+              <AlertTriangle className="w-6 h-6" />
+              URGENTE: STOCK BAJO
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {lowStockItems.map((item) => (
-                <div key={item.id} className="flex flex-col gap-1 border-b border-border pb-3 last:border-0">
-                  <span className="font-medium text-sm">{item.name}</span>
+                <div key={item.id} className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-[#fff5f5]">
+                  <span className="font-bold text-sm text-black">{item.name}</span>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground">Actual: {item.stock}</span>
-                    <span className="text-red-500 font-bold">Mínimo: {item.minStock}</span>
+                    <span className="bg-white px-2 py-1 rounded border font-medium">Actual: {item.stock}</span>
+                    <span className="text-red-600 font-black">Mín: {item.minStock}</span>
+                  </div>
+                  <div className="w-full bg-red-200 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-red-600 h-full" style={{ width: `${(item.stock / item.minStock) * 100}%` }} />
                   </div>
                 </div>
               ))}
             </div>
-            <Button variant="outline" className="w-full mt-4" asChild>
+            <Button variant="outline" className="w-full mt-6 font-bold border-black text-black hover:bg-black hover:text-white" asChild>
               <Link href="/inventario">Gestionar Inventario</Link>
             </Button>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {quickActions.map((action) => (
           <Button 
             key={action.name} 
             asChild
             variant="outline"
             className={cn(
-              "flex-1 h-24 flex flex-col gap-2 items-center justify-center border-none shadow-sm hover:scale-105 transition-transform",
+              "h-28 flex flex-col gap-3 items-center justify-center border-none shadow-md hover:scale-[1.02] transition-all rounded-2xl active:scale-95",
               action.color
             )}
           >
             <Link href={action.href}>
-              <action.icon className="w-6 h-6" />
-              <span className="font-bold">{action.name}</span>
+              <action.icon className="w-8 h-8" />
+              <span className="font-black text-lg uppercase tracking-tight">{action.name}</span>
             </Link>
           </Button>
         ))}

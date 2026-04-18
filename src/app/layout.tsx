@@ -5,7 +5,7 @@ import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'FerreSys TPV - Punto de Venta Ferretería',
+  title: 'Punto Ferretero - Tu ferretería bajo control',
   description: 'Sistema administrativo y punto de venta para ferreterías modernas.',
 };
 

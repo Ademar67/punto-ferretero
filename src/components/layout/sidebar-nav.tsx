@@ -44,24 +44,24 @@ export function SidebarNav() {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="flex items-center justify-center py-6 border-b border-sidebar-border/30">
-        <div className="flex items-center gap-2 px-2">
-          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-primary font-bold text-xl">
-            F
+    <Sidebar collapsible="icon" className="bg-black text-white border-r-0">
+      <SidebarHeader className="flex items-center justify-center py-8 border-b border-white/10">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-black font-black text-2xl shadow-[0_0_15px_rgba(255,214,0,0.3)]">
+            P
           </div>
-          <span className="font-headline font-bold text-xl group-data-[collapsible=icon]:hidden">
-            FerreSys TPV
+          <span className="font-headline font-black text-xl tracking-tight group-data-[collapsible=icon]:hidden">
+            PUNTO <span className="text-primary">FERRETERO</span>
           </span>
         </div>
       </SidebarHeader>
-      <SidebarContent className="py-4">
+      <SidebarContent className="py-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/60 px-4 group-data-[collapsible=icon]:hidden">
-            Principal
+          <SidebarGroupLabel className="text-white/40 px-6 mb-2 group-data-[collapsible=icon]:hidden text-xs uppercase tracking-widest font-bold">
+            Menú Principal
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="px-3 gap-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton 
@@ -69,13 +69,13 @@ export function SidebarNav() {
                     isActive={pathname === item.href}
                     tooltip={item.name}
                     className={cn(
-                      "transition-all duration-200",
-                      item.highlight && "bg-accent/20 hover:bg-accent/30 text-accent font-bold",
-                      pathname === item.href && "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm"
+                      "h-11 px-4 transition-all duration-200 rounded-lg hover:bg-white/5",
+                      item.highlight && "bg-primary text-black hover:bg-primary/90 font-bold mb-2 shadow-lg shadow-primary/10",
+                      pathname === item.href && !item.highlight && "bg-white/10 text-primary font-bold"
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={cn("w-5 h-5", item.highlight && "text-accent")} />
+                      <item.icon className={cn("w-5 h-5", item.highlight ? "text-black" : "text-inherit")} />
                       <span className="group-data-[collapsible=icon]:hidden">{item.name}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -85,12 +85,12 @@ export function SidebarNav() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-sidebar-border/30 p-4">
+      <SidebarFooter className="border-t border-white/10 p-4">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton className="hover:bg-destructive/10 hover:text-destructive group-data-[collapsible=icon]:justify-center">
+            <SidebarMenuButton className="h-11 px-4 text-white/60 hover:text-red-400 hover:bg-red-400/10 transition-colors group-data-[collapsible=icon]:justify-center rounded-lg">
               <LogOut className="w-5 h-5" />
-              <span className="group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
+              <span className="group-data-[collapsible=icon]:hidden font-medium">Cerrar Sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
