@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle } from "lucide-react"
+import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
@@ -37,13 +37,18 @@ export default function POSPage() {
 
   const { data: products, isLoading: loadingProducts } = useCollection<Product>(productsQuery)
 
+  // Mantener el foco en el input siempre
   useEffect(() => {
     setMounted(true)
     if (user && !isUserLoading) {
-      const timer = setTimeout(() => searchInputRef.current?.focus(), 150)
-      return () => clearTimeout(timer)
+      const focusInterval = setInterval(() => {
+        if (document.activeElement?.tagName !== 'INPUT' && !isPaymentOpen) {
+          searchInputRef.current?.focus()
+        }
+      }, 500)
+      return () => clearInterval(focusInterval)
     }
-  }, [user, isUserLoading])
+  }, [user, isUserLoading, isPaymentOpen])
 
   const filteredProducts = useMemo(() => {
     if (!products) return []
@@ -74,12 +79,40 @@ export default function POSPage() {
     })
     setSearchTerm("")
     // Feedback táctil/foco inmediato
-    searchInputRef.current?.focus()
+    setTimeout(() => searchInputRef.current?.focus(), 10)
   }
 
+  // Soporte para Escáner de Código de Barras
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && searchTerm && filteredProducts.length > 0) {
-      addToCart(filteredProducts[0])
+    if (e.key === 'Enter' && searchTerm.trim()) {
+      e.preventDefault()
+      
+      // Buscar por código exacto primero (Ideal para Pistola Escáner)
+      const exactMatch = products?.find(p => p.code.toLowerCase() === searchTerm.toLowerCase().trim())
+      
+      if (exactMatch) {
+        addToCart(exactMatch)
+        playBeep(660, 0.1) // Sonido suave de escaneo exitoso
+      } else if (filteredProducts.length === 1) {
+        // Si no hay código exacto pero solo hay un resultado filtrado por búsqueda
+        addToCart(filteredProducts[0])
+      } else if (filteredProducts.length > 1) {
+        // Si hay varios, no hacemos nada para que el cajero seleccione, o podríamos tomar el primero
+        toast({
+          title: "BÚSQUEDA AMBIGUA",
+          description: "Múltiples productos encontrados. Selecciona uno manualmente.",
+          variant: "default",
+        })
+      } else {
+        // No se encontró nada
+        toast({
+          title: "PRODUCTO NO ENCONTRADO",
+          description: `El código "${searchTerm}" no existe en el catálogo.`,
+          variant: "destructive",
+          className: "bg-black text-red-500 border-red-500 border-2 font-black",
+        })
+        setSearchTerm("")
+      }
     }
   }
 
@@ -99,24 +132,24 @@ export default function POSPage() {
 
   const total = cart.reduce((acc, item) => acc + item.subtotal, 0)
 
-  const playBeep = () => {
+  const playBeep = (freq = 880, dur = 0.15) => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
       gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + dur);
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.15);
+      oscillator.stop(audioContext.currentTime + dur);
     } catch (e) { console.warn("Audio Context Error") }
   };
 
   const handleFinishSale = () => {
-    playBeep();
+    playBeep(880, 0.2);
     setIsPaymentOpen(false)
     setCart([])
     setSearchTerm("")
@@ -125,7 +158,7 @@ export default function POSPage() {
       description: `¡Transacción guardada con éxito!`,
       className: "bg-black text-primary border-primary border-2 font-black",
     })
-    setTimeout(() => searchInputRef.current?.focus(), 300)
+    setTimeout(() => searchInputRef.current?.focus(), 500)
   }
 
   const seedTestData = async () => {
@@ -180,6 +213,7 @@ export default function POSPage() {
             <Input 
               ref={searchInputRef}
               placeholder="ESCANEAR CÓDIGO O BUSCAR..." 
+              autoFocus
               className="pl-12 h-14 text-xl font-black bg-white/5 border-none text-white focus-visible:ring-1 focus-visible:ring-primary rounded-xl placeholder:text-white/10 uppercase italic"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
