@@ -121,7 +121,10 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="pt-4 border-t border-dashed border-muted text-center">
+          <div className="pt-4 border-t border-dashed border-muted text-center space-y-4">
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+              ¿No tienes cuenta? <Link href="/register" className="text-black font-black hover:text-primary underline underline-offset-4">Regístrate gratis</Link>
+            </p>
              <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.4em]">
               © 2026 PUNTO FERRETERO • SISTEMA DE CONTROL
             </p>
