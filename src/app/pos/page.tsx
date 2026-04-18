@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, ShoppingCart, Plus, Minus, Trash2, Package, CheckCircle2 } from "lucide-react"
+import { Search, ShoppingCart, Package, Hammer, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
@@ -9,23 +9,29 @@ import { PaymentModal } from "@/components/pos/payment-modal"
 import { Product, SaleItem, PaymentMethod } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 
-// Mock products (Simulando base de datos)
 const MOCK_PRODUCTS: Product[] = [
-  { id: "1", ownerId: "1", name: "Martillo 16oz Pro", code: "M-001", categoryId: "1", brand: "Truper", salePrice: 150.00, costPrice: 90.00, stock: 15, minStock: 5, unit: "pza", active: true, createdAt: new Date() },
+  { id: "1", ownerId: "1", name: "Martillo de Uña 16oz Pro", code: "M-001", categoryId: "1", brand: "Truper", salePrice: 150.00, costPrice: 90.00, stock: 15, minStock: 5, unit: "pza", active: true, createdAt: new Date() },
   { id: "2", ownerId: "1", name: "Cinta Canela 48mm x 50m", code: "C-002", categoryId: "2", brand: "Tuk", salePrice: 35.50, costPrice: 18.00, stock: 42, minStock: 10, unit: "pza", active: true, createdAt: new Date() },
   { id: "3", ownerId: "1", name: "Pintura Vinílica Blanca 19L", code: "P-003", categoryId: "3", brand: "Comex", salePrice: 1250.00, costPrice: 850.00, stock: 8, minStock: 2, unit: "cubeta", active: true, createdAt: new Date() },
-  { id: "4", ownerId: "1", name: "Tubo PVC 1/2' 6m", code: "T-004", categoryId: "4", brand: "Generic", salePrice: 85.00, costPrice: 45.00, stock: 20, minStock: 5, unit: "tramo", active: true, createdAt: new Date() },
-  { id: "5", ownerId: "1", name: "Llave Inglesa 8'", code: "L-005", categoryId: "1", brand: "Stanley", salePrice: 210.00, costPrice: 130.00, stock: 12, minStock: 3, unit: "pza", active: true, createdAt: new Date() },
+  { id: "4", ownerId: "1", name: "Tubo PVC 1/2' 6m Reforzado", code: "T-004", categoryId: "4", brand: "Generic", salePrice: 85.00, costPrice: 45.00, stock: 20, minStock: 5, unit: "tramo", active: true, createdAt: new Date() },
+  { id: "5", ownerId: "1", name: "Llave Inglesa 8' Cromada", code: "L-005", categoryId: "1", brand: "Stanley", salePrice: 210.00, costPrice: 130.00, stock: 12, minStock: 3, unit: "pza", active: true, createdAt: new Date() },
+  { id: "6", ownerId: "1", name: "Desarmador Phillips #2 x 4'", code: "D-006", categoryId: "1", brand: "Truper", salePrice: 45.00, costPrice: 25.00, stock: 30, minStock: 10, unit: "pza", active: true, createdAt: new Date() },
 ]
 
 export default function POSPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [cart, setCart] = useState<SaleItem[]>([])
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { toast } = useToast()
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Filtrado de productos en tiempo real
+  useEffect(() => {
+    setMounted(true)
+    const timer = setTimeout(() => searchInputRef.current?.focus(), 100)
+    return () => clearTimeout(timer)
+  }, [])
+
   const filteredProducts = MOCK_PRODUCTS.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     p.code.toLowerCase().includes(searchTerm.toLowerCase())
@@ -50,7 +56,6 @@ export default function POSPage() {
         discount: 0 
       }]
     })
-    // Reset buscador tras agregar
     setSearchTerm("")
     searchInputRef.current?.focus()
   }
@@ -82,72 +87,102 @@ export default function POSPage() {
     setCart([])
     setSearchTerm("")
     toast({
-      title: "VENTA REALIZADA CON ÉXITO",
-      description: `Folio generado. Total: $${total.toFixed(2)} (${method.toUpperCase()})`,
-      className: "bg-green-600 text-white font-black",
+      title: "VENTA REALIZADA",
+      description: `Total: $${total.toFixed(2)} (${method.toUpperCase()})`,
+      className: "bg-black text-primary border-primary border-2 font-black",
     })
     searchInputRef.current?.focus()
   }
 
+  if (!mounted) return null
+
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-theme(spacing.4))] overflow-hidden bg-[#F5F5F5]">
-      {/* Sección de Selección de Productos */}
+    <div className="flex flex-col lg:flex-row h-screen bg-[#F5F5F5] overflow-hidden">
+      {/* SECCION IZQUIERDA: BUSQUEDA Y PRODUCTOS */}
       <div className="flex-1 flex flex-col p-6 overflow-hidden">
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-border mb-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-6 h-6" />
+        <div className="bg-black p-6 rounded-2xl shadow-2xl border-b-4 border-primary mb-6">
+          <div className="relative group">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary w-6 h-6 group-focus-within:scale-110 transition-transform" />
             <Input 
               ref={searchInputRef}
-              placeholder="Escribe nombre o código y presiona ENTER..." 
-              className="pl-14 h-16 text-xl border-none bg-muted/30 focus-visible:ring-primary rounded-xl"
+              placeholder="ESCANEAR CÓDIGO O BUSCAR PRODUCTO..." 
+              className="pl-16 h-20 text-2xl font-black bg-white/5 border-none text-white focus-visible:ring-2 focus-visible:ring-primary rounded-xl placeholder:text-white/20 uppercase italic"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
-              autoFocus
             />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm("")}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary">
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 pb-10">
             {filteredProducts.map((product) => (
               <button
-                key={product.id}
-                className="flex flex-col items-start p-4 gap-3 bg-white border-2 border-transparent hover:border-primary hover:shadow-xl transition-all rounded-2xl text-left active:scale-95 group"
+                key={`pos-prod-${product.id}`}
+                className="flex flex-col items-start p-5 gap-4 bg-white border-2 border-transparent hover:border-black hover:shadow-[0_10px_30px_rgba(0,0,0,0.1)] transition-all rounded-2xl text-left active:scale-95 group relative overflow-hidden"
                 onClick={() => addToCart(product)}
               >
-                <div className="w-full flex justify-between items-center">
-                  <span className="text-[10px] font-black text-white bg-black px-2 py-0.5 rounded-md uppercase tracking-widest">{product.code}</span>
-                  <span className="text-xs text-primary font-black uppercase">{product.stock} DISP.</span>
+                <div className="absolute top-0 right-0 w-20 h-20 bg-primary/5 -mr-10 -mt-10 rounded-full group-hover:scale-150 transition-transform" />
+                
+                <div className="w-full flex justify-between items-center relative z-10">
+                  <span className="text-[9px] font-black text-white bg-black px-2 py-0.5 rounded uppercase tracking-[0.2em]">{product.code}</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-muted-foreground font-black uppercase">Stock</span>
+                    <span className={`text-xs font-black ${product.stock <= product.minStock ? 'text-red-600' : 'text-black'}`}>
+                      {product.stock} {product.unit}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-black text-sm text-black uppercase leading-tight line-clamp-2">{product.name}</h3>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1">{product.brand}</p>
+                
+                <div className="flex-1 w-full relative z-10">
+                  <h3 className="font-black text-sm text-black uppercase leading-tight line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
+                  <p className="text-[10px] text-primary font-black uppercase tracking-widest mt-1 italic">{product.brand}</p>
                 </div>
-                <div className="w-full pt-2 border-t border-muted">
-                  <span className="text-2xl font-black text-black tracking-tighter">${product.salePrice.toFixed(2)}</span>
+                
+                <div className="w-full pt-4 border-t-2 border-dashed border-muted relative z-10">
+                  <div className="flex items-end justify-between">
+                    <span className="text-3xl font-black text-black tracking-tighter leading-none">${product.salePrice.toFixed(2)}</span>
+                    <Hammer className="w-5 h-5 text-muted/30 group-hover:text-primary transition-colors" />
+                  </div>
                 </div>
               </button>
             ))}
           </div>
           {filteredProducts.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/30 py-20">
-              <Package className="w-24 h-24 mb-4" />
-              <p className="text-2xl font-black uppercase italic">Sin resultados</p>
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground/20 py-20">
+              <Package className="w-32 h-32 mb-6" />
+              <p className="text-3xl font-black uppercase italic tracking-tighter">Sin coincidencias</p>
+              <p className="text-sm font-bold mt-2">Intenta con otro nombre o código de barras</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Sección de Carrito / Terminal */}
-      <div className="w-full lg:w-[480px] bg-white border-l border-border flex flex-col shadow-2xl relative">
-        <div className="p-6 border-b border-border flex justify-between items-center bg-black">
-          <h2 className="text-xl font-black text-white italic uppercase flex items-center gap-2">
-            <ShoppingCart className="w-6 h-6 text-primary" />
-            Terminal de Venta
-          </h2>
-          <div className="bg-primary text-black px-4 py-1 rounded-full font-black text-xs uppercase">
-            {cart.reduce((a, b) => a + b.quantity, 0)} Items
+      {/* SECCION DERECHA: TERMINAL DE VENTA */}
+      <div className="w-full lg:w-[500px] bg-white border-l-4 border-black flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.2)] relative z-20">
+        <div className="p-8 border-b-2 border-black flex justify-between items-center bg-black">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg rotate-3 group-hover:-rotate-3 transition-transform">
+              <ShoppingCart className="w-6 h-6 text-black" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-white italic uppercase leading-none tracking-tighter">
+                Terminal <span className="text-primary">POS</span>
+              </h2>
+              <p className="text-[9px] text-white/40 font-black uppercase tracking-[0.3em] mt-1">Ready to checkout</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-primary text-[10px] font-black uppercase tracking-widest">Items</span>
+            <p className="text-2xl font-black text-white leading-none">{cart.reduce((a, b) => a + b.quantity, 0)}</p>
           </div>
         </div>
         
@@ -160,13 +195,14 @@ export default function POSPage() {
           />
         </div>
 
-        <div className="p-6 bg-white border-t border-border">
+        <div className="p-8 bg-white border-t-4 border-black">
           <Button 
-            className="w-full h-20 text-2xl font-black bg-primary hover:bg-primary/90 text-black shadow-xl shadow-primary/20 rounded-2xl transition-all active:scale-95 disabled:opacity-30 disabled:grayscale"
+            className="w-full h-24 text-3xl font-black bg-primary hover:bg-primary/90 text-black shadow-[0_15px_40px_rgba(255,214,0,0.3)] rounded-2xl transition-all active:scale-95 disabled:opacity-30 disabled:grayscale flex flex-col gap-1 items-center justify-center"
             disabled={cart.length === 0}
             onClick={() => setIsPaymentOpen(true)}
           >
-            PAGAR AHORA (${total.toFixed(2)})
+            <span className="text-xs uppercase tracking-[0.3em] opacity-50 font-black">Confirmar y Pagar</span>
+            <span className="tracking-tighter italic font-black uppercase">Pagar $ {total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
           </Button>
         </div>
       </div>

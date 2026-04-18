@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Banknote, CreditCard, Send, History } from "lucide-react"
+import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator } from "lucide-react"
 import { PaymentMethod } from "@/types"
 
 interface PaymentModalProps {
@@ -32,8 +32,7 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
     if (isOpen) {
       setAmountPaid(total.toString())
       setMethod('efectivo')
-      // Pequeño delay para asegurar que el input exista y tome el foco
-      const timer = setTimeout(() => amountInputRef.current?.focus(), 100)
+      const timer = setTimeout(() => amountInputRef.current?.focus(), 150)
       return () => clearTimeout(timer)
     }
   }, [isOpen, total])
@@ -44,54 +43,69 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
   }, [amountPaid, total])
 
   const handleConfirm = () => {
-    onConfirm(method, parseFloat(amountPaid) || total)
+    const paid = parseFloat(amountPaid) || total
+    if (method === 'efectivo' && paid < total) {
+      alert("El monto recibido no puede ser menor al total")
+      return
+    }
+    onConfirm(method, paid)
   }
 
-  // Generamos montos sugeridos únicos para evitar errores de duplicidad de keys
+  // Montos rápidos inteligentes basados en billetes reales
   const quickAmounts = Array.from(new Set([
     total,
+    Math.ceil(total / 20) * 20,
     Math.ceil(total / 50) * 50,
     Math.ceil(total / 100) * 100,
     Math.ceil(total / 200) * 200,
     Math.ceil(total / 500) * 500,
-  ])).sort((a, b) => a - b)
+    1000
+  ])).filter(a => a >= total).sort((a, b) => a - b).slice(0, 5)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none rounded-3xl">
-        <DialogHeader className="bg-black p-8 text-white relative">
+      <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[3rem] shadow-2xl">
+        <DialogHeader className="bg-black p-10 text-white relative border-b-8 border-primary">
           <div className="flex flex-col">
-            <span className="text-primary font-black uppercase tracking-widest text-[10px] mb-1 italic">Resumen de Pago</span>
-            <DialogTitle className="text-3xl font-black italic uppercase tracking-tighter">Confirmar Venta</DialogTitle>
+            <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px] mb-2 italic">Caja Registradora</span>
+            <DialogTitle className="text-4xl font-black italic uppercase tracking-tighter leading-none">Confirmar Cobro</DialogTitle>
           </div>
-          <div className="mt-6 flex flex-col">
-            <span className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em]">Total a Cobrar</span>
-            <div className="text-6xl font-black text-primary tracking-tighter">${total.toFixed(2)}</div>
+          <div className="mt-10 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-white/30 text-[10px] font-black uppercase tracking-[0.3em]">Importe Total</span>
+              <div className="text-7xl font-black text-primary tracking-tighter italic leading-none">$ {total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+            </div>
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+              <Calculator className="w-10 h-10 text-white/20" />
+            </div>
           </div>
         </DialogHeader>
 
-        <div className="p-8 space-y-8 bg-white">
-          <div className="space-y-4">
-            <Label className="text-xs font-black uppercase tracking-widest text-black/50">Selecciona el Método de Pago</Label>
+        <div className="p-10 space-y-10 bg-white">
+          <div className="space-y-5">
+            <Label className="text-xs font-black uppercase tracking-[0.2em] text-black/40 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-black text-primary flex items-center justify-center text-[10px]">1</span>
+              Método de Pago
+            </Label>
             <RadioGroup 
               value={method} 
               onValueChange={(val) => setMethod(val as PaymentMethod)}
-              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+              className="grid grid-cols-2 sm:grid-cols-4 gap-4"
             >
               {[
                 { id: 'efectivo', icon: Banknote, label: 'Efectivo' },
                 { id: 'tarjeta', icon: CreditCard, label: 'Tarjeta' },
-                { id: 'transferencia', icon: Send, label: 'Transf.' },
+                { id: 'transferencia', icon: Send, label: 'Transfer.' },
                 { id: 'credito', icon: History, label: 'Crédito' }
               ].map((m) => (
-                <div key={m.id} className="relative">
-                  <RadioGroupItem value={m.id} id={m.id} className="peer sr-only" />
+                <div key={`method-${m.id}`} className="relative group">
+                  <RadioGroupItem value={m.id} id={`input-${m.id}`} className="peer sr-only" />
                   <Label
-                    htmlFor={m.id}
-                    className="flex flex-col items-center justify-center rounded-2xl border-2 border-muted bg-white p-4 h-24 hover:bg-primary/5 cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/10 transition-all group"
+                    htmlFor={`input-${m.id}`}
+                    className="flex flex-col items-center justify-center rounded-[2rem] border-4 border-muted bg-white p-4 h-32 hover:border-black/10 cursor-pointer peer-data-[state=checked]:border-black peer-data-[state=checked]:bg-black peer-data-[state=checked]:text-primary transition-all shadow-sm active:scale-95"
                   >
-                    <m.icon className="mb-2 h-6 w-6 text-muted-foreground group-hover:text-primary peer-data-[state=checked]:text-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-black">{m.label}</span>
+                    <m.icon className="mb-3 h-8 w-8 text-muted-foreground peer-data-[state=checked]:text-primary" />
+                    <span className="text-[11px] font-black uppercase tracking-widest text-inherit">{m.label}</span>
                   </Label>
                 </div>
               ))}
@@ -99,38 +113,42 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
           </div>
 
           {method === 'efectivo' && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {quickAmounts.map((amt) => (
-                  <Button 
-                    key={`quick-amount-${amt}`} 
-                    variant="outline" 
-                    onClick={() => setAmountPaid(amt.toString())}
-                    className="whitespace-nowrap rounded-full border-2 border-black font-black text-xs h-10 px-4 hover:bg-black hover:text-white"
-                  >
-                    ${amt}
-                  </Button>
-                ))}
+            <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 bg-muted/20 p-8 rounded-[2.5rem] border-2 border-muted/50">
+              <div className="flex flex-col gap-4">
+                <Label className="text-xs font-black uppercase tracking-[0.2em] text-black/40">Sugerencias de Pago</Label>
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                  {quickAmounts.map((amt) => (
+                    <Button 
+                      key={`btn-amt-${amt}`} 
+                      variant="outline" 
+                      onClick={() => setAmountPaid(amt.toString())}
+                      className="whitespace-nowrap rounded-2xl border-2 border-black/10 font-black text-sm h-14 px-6 hover:bg-black hover:text-primary transition-all active:scale-90"
+                    >
+                      $ {amt}
+                    </Button>
+                  ))}
+                </div>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-muted/20 p-6 rounded-3xl border border-muted">
-                <div className="space-y-3">
-                  <Label htmlFor="amountPaid" className="font-black text-[10px] uppercase tracking-widest">Monto Recibido ($)</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <Label htmlFor="amountPaid" className="font-black text-[11px] uppercase tracking-widest text-black/60 italic">Recibido del Cliente</Label>
                   <div className="relative">
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-black text-black/20">$</span>
                     <Input 
                       id="amountPaid"
                       ref={amountInputRef}
                       type="number"
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(e.target.value)}
-                      className="text-4xl h-16 font-black tracking-tighter rounded-xl border-2 border-black focus-visible:ring-primary pl-4"
+                      className="text-5xl h-24 font-black tracking-tighter rounded-[1.5rem] border-4 border-black focus-visible:ring-primary pl-12 bg-white shadow-xl"
                     />
                   </div>
                 </div>
-                <div className="space-y-3">
-                  <Label className="font-black text-[10px] uppercase tracking-widest text-green-600">Cambio a entregar</Label>
-                  <div className="text-5xl font-black text-green-600 h-16 flex items-center tracking-tighter">
-                    ${change.toFixed(2)}
+                <div className="space-y-4">
+                  <Label className="font-black text-[11px] uppercase tracking-widest text-green-600 italic">Cambio a Entregar</Label>
+                  <div className="h-24 flex items-center bg-green-50 rounded-[1.5rem] border-4 border-green-200 px-6 shadow-inner">
+                    <span className="text-5xl font-black text-green-600 tracking-tighter italic">$ {change.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
@@ -138,12 +156,17 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
           )}
         </div>
 
-        <DialogFooter className="p-8 bg-muted/10 border-t border-border flex flex-col sm:flex-row gap-3">
-          <Button variant="ghost" onClick={onClose} size="lg" className="flex-1 font-black uppercase tracking-widest text-xs h-16 rounded-2xl">
-            Cancelar
+        <DialogFooter className="p-10 bg-black/5 border-t border-muted flex flex-col sm:flex-row gap-4">
+          <Button variant="ghost" onClick={onClose} size="lg" className="flex-1 font-black uppercase tracking-[0.3em] text-xs h-20 rounded-2xl hover:bg-black hover:text-white transition-all">
+            Cancelar Venta
           </Button>
-          <Button onClick={handleConfirm} size="lg" className="flex-1 bg-primary hover:bg-primary/90 text-black font-black text-xl h-16 rounded-2xl shadow-xl shadow-primary/20">
-            CONFIRMAR VENTA
+          <Button 
+            onClick={handleConfirm} 
+            size="lg" 
+            className="flex-1 bg-black hover:bg-black/90 text-primary font-black text-2xl h-20 rounded-[1.5rem] shadow-2xl shadow-primary/20 flex items-center gap-3 transition-all active:scale-95 group"
+          >
+            <CheckCircle2 className="w-6 h-6 group-hover:scale-125 transition-transform" />
+            FINALIZAR COBRO
           </Button>
         </DialogFooter>
       </DialogContent>
