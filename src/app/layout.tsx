@@ -14,18 +14,12 @@ function AppContent({ children }: { children: React.ReactNode }) {
   const [initialLoading, setInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Garantizamos que el splash se muestre al menos 2.2 segundos para el efecto premium
+    // Garantizamos que el splash se muestre al menos 2.2 segundos para el efecto de marca
     const timer = setTimeout(() => {
       if (!isUserLoading) {
         setInitialLoading(false);
       }
     }, 2200);
-
-    if (!isUserLoading) {
-      // Si Firebase ya cargó, pero el timer no ha terminado, el useEffect del timer mandará
-    } else {
-      setInitialLoading(true);
-    }
 
     return () => clearTimeout(timer);
   }, [isUserLoading]);
