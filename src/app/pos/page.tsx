@@ -107,7 +107,6 @@ export default function POSPage() {
   }
 
   const handleUnknownCode = (code: string) => {
-    console.log("Código no encontrado:", code)
     playBeep(220, 0.3)
     setPrefilledCode(code.trim().toUpperCase())
     toast({
@@ -134,7 +133,6 @@ export default function POSPage() {
 
   const handleCameraScan = (code: string) => {
     const normalizedCode = code.trim().toUpperCase()
-    console.log("Cámara detectó:", normalizedCode)
     const product = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
     if (product) {
       addToCart(product)
