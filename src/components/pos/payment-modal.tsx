@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2, AlertCircle } from "lucide-react"
-import { PaymentMethod, SaleItem } from "@/types"
+import { PaymentMethod, SaleItem, SaleStatus } from "@/types"
 import { useFirestore, useUser } from "@/firebase"
 import { collection, doc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -37,7 +37,6 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const db = useFirestore()
   const { user } = useUser()
 
-  // Resetear estados al abrir el modal para asegurar una sesión limpia
   useEffect(() => {
     if (isOpen) {
       setAmountPaid("")
@@ -92,15 +91,18 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
         date: serverTimestamp(),
         items: cartItems,
         total: total,
+        subtotal: total / 1.16, // Estimación simple si no se calcula por ítem
+        discount: 0,
         paymentMethod: method,
         amountPaid: paid,
         change: change,
-        createdAt: serverTimestamp()
+        status: 'completada' as SaleStatus,
+        createdAt: serverTimestamp(),
+        folio: `V-${Date.now().toString().slice(-6)}` // Folio temporal simplificado
       }
       
       batch.set(saleRef, saleData)
 
-      // Actualización de stock atómica para cada producto
       cartItems.forEach((item) => {
         const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
         batch.update(productRef, {
@@ -110,12 +112,11 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
 
       await batch.commit()
       
-      // Limpieza de estado interno después de la venta exitosa
       setAmountPaid("")
       setMethod('efectivo')
       setIsProcessing(false)
       
-      onConfirm() // Notifica al POS que la venta terminó
+      onConfirm()
     } catch (error: any) {
       console.error("Error al procesar la venta:", error)
       setIsProcessing(false)

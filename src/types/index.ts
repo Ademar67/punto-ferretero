@@ -42,6 +42,7 @@ export interface SaleItem {
 }
 
 export type PaymentMethod = 'efectivo' | 'transferencia' | 'tarjeta' | 'credito';
+export type SaleStatus = 'completada' | 'cancelada';
 
 export interface Sale {
   id: string;
@@ -57,9 +58,15 @@ export interface Sale {
   change: number;
   userId: string;
   userEmail: string;
+  status: SaleStatus;
+  cancelledAt?: any;
+  cancelledByUserId?: string;
+  cancelledByUserEmail?: string;
+  cancelReason?: string;
+  createdAt: any;
 }
 
-export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste';
+export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'cancelacion';
 
 export interface InventoryMovement {
   id: string;

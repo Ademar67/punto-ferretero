@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, Eye, Printer, FileDown, ReceiptText, Calendar as CalendarIcon } from "lucide-react"
+import { Search, Eye, Printer, FileDown, ReceiptText, Calendar as CalendarIcon, Ban, Loader2, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -14,17 +14,103 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-
-// Mock data
-const MOCK_SALES = [
-  { id: "V-0001", date: "2024-03-20 10:30", total: 450.50, method: "efectivo", items: 3, user: "Juan Pérez" },
-  { id: "V-0002", date: "2024-03-20 11:15", total: 125.00, method: "tarjeta", items: 1, user: "Juan Pérez" },
-  { id: "V-0003", date: "2024-03-20 12:45", total: 2400.00, method: "transferencia", items: 5, user: "Admin" },
-  { id: "V-0004", date: "2024-03-19 16:20", total: 85.00, method: "efectivo", items: 2, user: "Cajera 2" },
-]
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog"
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { query, collection, where, orderBy, writeBatch, doc, serverTimestamp, increment } from "firebase/firestore"
+import { Sale } from "@/types"
+import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 
 export default function VentasPage() {
+  const { user } = useUser()
+  const db = useFirestore()
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
+  const [cancellingSale, setCancellingSale] = useState<Sale | null>(null)
+  const [cancelReason, setCancelReason] = useState("")
+  const [isProcessingCancel, setIsProcessingCancel] = useState(false)
+
+  // Consulta de ventas reales desde Firestore
+  const salesQuery = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null
+    return query(
+      collection(db, "negocios", user.uid, "ventas"),
+      orderBy("date", "desc")
+    )
+  }, [db, user?.uid])
+
+  const { data: sales, isLoading } = useCollection<Sale>(salesQuery)
+
+  const filteredSales = sales?.filter(s => 
+    s.folio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    s.userEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || []
+
+  const handleCancelSale = async () => {
+    if (!db || !user?.uid || !cancellingSale) return
+
+    setIsProcessingCancel(true)
+    try {
+      const batch = writeBatch(db)
+      const saleRef = doc(db, "negocios", user.uid, "ventas", cancellingSale.id)
+
+      // 1. Actualizar estado de la venta
+      batch.update(saleRef, {
+        status: 'cancelada',
+        cancelledAt: serverTimestamp(),
+        cancelledByUserId: user.uid,
+        cancelledByUserEmail: user.email,
+        cancelReason: cancelReason || "Sin motivo especificado"
+      })
+
+      // 2. Revertir inventario para cada item
+      cancellingSale.items.forEach(item => {
+        const productRef = doc(db, "negocios", user.uid!, "productos", item.productId)
+        batch.update(productRef, {
+          stock: increment(item.quantity)
+        })
+      })
+
+      await batch.commit()
+      
+      toast({
+        title: "VENTA ANULADA",
+        description: `El folio ${cancellingSale.folio} ha sido cancelado y el stock revertido.`,
+        className: "bg-black text-primary border-primary border-2 font-black",
+      })
+    } catch (error) {
+      console.error("Error al cancelar venta:", error)
+      toast({
+        title: "ERROR",
+        description: "No se pudo anular la venta. Inténtalo de nuevo.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsProcessingCancel(false)
+      setCancellingSale(null)
+      setCancelReason("")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="font-black uppercase italic tracking-tighter">Consultando Historial...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 lg:p-10 space-y-8 bg-[#f8f9fa] min-h-full">
@@ -50,26 +136,28 @@ export default function VentasPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardHeader className="pb-2 bg-primary/5">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ventas de Hoy</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Ventas Brutas</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="text-3xl font-black tracking-tight">$12,450.00</div>
+            <div className="text-3xl font-black tracking-tight">
+              $ {sales?.reduce((acc, s) => acc + (s.status === 'completada' ? s.total : 0), 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+            </div>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardHeader className="pb-2 bg-primary/5">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tickets Emitidos</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Tickets Activos</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="text-3xl font-black tracking-tight">24</div>
+            <div className="text-3xl font-black tracking-tight">{sales?.filter(s => s.status === 'completada').length || 0}</div>
           </CardContent>
         </Card>
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardHeader className="pb-2 bg-primary/5">
-            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ticket Promedio</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Anulaciones</CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="text-3xl font-black tracking-tight">$518.75</div>
+            <div className="text-3xl font-black tracking-tight text-red-600">{sales?.filter(s => s.status === 'cancelada').length || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -99,27 +187,48 @@ export default function VentasPage() {
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Productos</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Total</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Método Pago</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Usuario</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Estado</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14 text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {MOCK_SALES.map((sale) => (
-              <TableRow key={sale.id} className="hover:bg-primary/5 border-border/50">
-                <TableCell className="font-black text-black">{sale.id}</TableCell>
-                <TableCell className="font-medium">{sale.date}</TableCell>
+            {filteredSales.map((sale) => (
+              <TableRow 
+                key={sale.id} 
+                className={cn(
+                  "hover:bg-primary/5 border-border/50",
+                  sale.status === 'cancelada' && "bg-red-50/50 opacity-60"
+                )}
+              >
+                <TableCell className={cn("font-black", sale.status === 'cancelada' ? "line-through text-red-400" : "text-black")}>
+                  {sale.folio}
+                </TableCell>
+                <TableCell className="font-medium">
+                  {sale.date?.seconds ? format(new Date(sale.date.seconds * 1000), "dd MMM, HH:mm", { locale: es }) : "Pendiente"}
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className="bg-black/5 text-black font-bold border-none uppercase text-[9px]">
-                    {sale.items} items
+                    {sale.items.reduce((acc, item) => acc + item.quantity, 0)} items
                   </Badge>
                 </TableCell>
-                <TableCell className="font-black text-xl text-black">${sale.total.toFixed(2)}</TableCell>
+                <TableCell className={cn("font-black text-xl", sale.status === 'cancelada' ? "text-red-300" : "text-black")}>
+                  ${sale.total.toFixed(2)}
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="capitalize border-2 border-primary text-black font-black text-[9px] px-3">
-                    {sale.method}
+                    {sale.paymentMethod}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm font-bold text-muted-foreground uppercase">{sale.user}</TableCell>
+                <TableCell>
+                  <Badge 
+                    className={cn(
+                      "font-black text-[9px] uppercase px-3 py-1",
+                      sale.status === 'completada' ? "bg-green-500" : "bg-red-600"
+                    )}
+                  >
+                    {sale.status}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="icon" className="hover:bg-primary hover:text-black rounded-lg">
@@ -128,13 +237,67 @@ export default function VentasPage() {
                     <Button variant="ghost" size="icon" className="hover:bg-primary hover:text-black rounded-lg">
                       <Printer className="w-5 h-5" />
                     </Button>
+                    {sale.status === 'completada' && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="hover:bg-red-600 hover:text-white rounded-lg transition-colors"
+                        onClick={() => setCancellingSale(sale)}
+                      >
+                        <Ban className="w-5 h-5" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        {filteredSales.length === 0 && (
+          <div className="p-20 text-center flex flex-col items-center gap-4 text-muted-foreground">
+            <ReceiptText className="w-16 h-16 opacity-20" />
+            <p className="font-black uppercase italic">Sin registros de ventas</p>
+          </div>
+        )}
       </div>
+
+      {/* DIÁLOGO DE CONFIRMACIÓN PARA CANCELACIÓN */}
+      <AlertDialog open={!!cancellingSale} onOpenChange={(open) => !open && setCancellingSale(null)}>
+        <AlertDialogContent className="rounded-3xl border-4 border-black">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+              <AlertTriangle className="text-red-600 w-8 h-8" />
+              ¿Confirmar Anulación?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base font-medium">
+              Esta acción marcará la venta <span className="font-black text-black">{cancellingSale?.folio}</span> como cancelada y devolverá el stock a los productos correspondientes.
+            </AlertDialogDescription>
+            <div className="mt-6 space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Motivo de la cancelación (Opcional)</label>
+              <Input 
+                placeholder="Ej. Error en cobro, Devolución de cliente..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="border-2 border-muted focus:border-red-600 h-12 rounded-xl"
+              />
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-8 gap-4">
+            <AlertDialogCancel className="h-14 rounded-2xl border-2 border-black font-black uppercase text-xs">Mantener Venta</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault()
+                handleCancelSale()
+              }}
+              disabled={isProcessingCancel}
+              className="h-14 rounded-2xl bg-red-600 hover:bg-black text-white font-black uppercase text-xs flex items-center gap-2"
+            >
+              {isProcessingCancel ? <Loader2 className="animate-spin" /> : <Ban className="w-4 h-4" />}
+              Anular Definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
