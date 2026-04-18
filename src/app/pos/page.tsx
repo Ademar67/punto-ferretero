@@ -1,17 +1,19 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Search, ShoppingCart, Package, Hammer, X, Loader2 } from "lucide-react"
+import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
 import { PaymentModal } from "@/components/pos/payment-modal"
 import { Product, SaleItem, PaymentMethod } from "@/types"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
+import Link from "next/link"
 
 export default function POSPage() {
+  const { user, isUserLoading } = useUser()
   const [searchTerm, setSearchTerm] = useState("")
   const [cart, setCart] = useState<SaleItem[]>([])
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
@@ -22,19 +24,26 @@ export default function POSPage() {
   const db = useFirestore()
 
   // Consulta de productos reales desde Firestore con memorización obligatoria
+  // Solo se activa si el usuario está autenticado (user.uid disponible)
   const productsQuery = useMemoFirebase(() => {
-    if (!db) return null
-    // Nota: Esta es una consulta general. En producción se filtraría por negocio (ownerId)
-    return query(collection(db, "products"), where("active", "==", true), limit(50))
-  }, [db])
+    if (!db || !user?.uid) return null
+    // Se apunta a la subcolección del negocio específico según backend.json
+    return query(
+      collection(db, "negocios", user.uid, "productos"), 
+      where("active", "==", true), 
+      limit(100)
+    )
+  }, [db, user?.uid])
 
-  const { data: products, isLoading: loading } = useCollection<Product>(productsQuery)
+  const { data: products, isLoading: loadingProducts } = useCollection<Product>(productsQuery)
 
   useEffect(() => {
     setMounted(true)
-    const timer = setTimeout(() => searchInputRef.current?.focus(), 100)
-    return () => clearTimeout(timer)
-  }, [])
+    if (user && !isUserLoading) {
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 150)
+      return () => clearTimeout(timer)
+    }
+  }, [user, isUserLoading])
 
   const filteredProducts = useMemo(() => {
     if (!products) return []
@@ -101,7 +110,33 @@ export default function POSPage() {
     searchInputRef.current?.focus()
   }
 
-  if (!mounted) return null
+  // 1. Estado de carga inicial (Hydration + Auth)
+  if (!mounted || isUserLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="font-black uppercase italic tracking-tighter">Iniciando Terminal...</p>
+      </div>
+    )
+  }
+
+  // 2. Estado de No Autenticado
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] p-6 gap-6 text-center">
+        <div className="w-20 h-20 bg-black rounded-3xl flex items-center justify-center shadow-xl rotate-3 border-4 border-primary">
+          <Lock className="w-10 h-10 text-primary -rotate-3" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-black uppercase italic tracking-tighter">Acceso Restringido</h1>
+          <p className="text-muted-foreground font-bold uppercase text-xs">Debes iniciar sesión para operar la terminal de venta.</p>
+        </div>
+        <Button asChild size="lg" className="bg-primary text-black font-black px-10 h-14 rounded-xl shadow-lg shadow-primary/20">
+          <Link href="/login">IR AL LOGIN</Link>
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#F5F5F5] overflow-hidden">
@@ -130,10 +165,10 @@ export default function POSPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          {loading ? (
+          {loadingProducts ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
-              <Loader2 className="w-12 h-12 animate-spin" />
-              <p className="font-black uppercase italic">Cargando catálogo...</p>
+              <Loader2 className="w-12 h-12 animate-spin text-primary" />
+              <p className="font-black uppercase italic tracking-tight">Consultando Catálogo...</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-5 pb-10">
@@ -170,7 +205,7 @@ export default function POSPage() {
               ))}
             </div>
           )}
-          {!loading && filteredProducts.length === 0 && (
+          {!loadingProducts && filteredProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground/20 py-20">
               <Package className="w-32 h-32 mb-6" />
               <p className="text-3xl font-black uppercase italic tracking-tighter">Sin coincidencias</p>

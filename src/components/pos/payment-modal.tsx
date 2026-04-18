@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -13,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2, AlertCircle } from "lucide-react"
+import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2 } from "lucide-react"
 import { PaymentMethod, SaleItem } from "@/types"
 import { useFirestore, useUser } from "@/firebase"
 import { collection, doc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
@@ -57,13 +56,8 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
    * Guarda la venta y descuenta inventario de forma atómica.
    */
   const handleConfirm = async () => {
-    if (!db) {
-      toast({ title: "Error", description: "Base de datos no disponible.", variant: "destructive" })
-      return
-    }
-    
-    if (!user) {
-      toast({ title: "Error", description: "Usuario no autenticado.", variant: "destructive" })
+    if (!db || !user?.uid) {
+      toast({ title: "Error de sesión", description: "Debes estar autenticado para cobrar.", variant: "destructive" })
       return
     }
 
@@ -78,14 +72,15 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     try {
       const batch = writeBatch(db)
       
-      // 1. ESTRUCTURA DEL DOCUMENTO DE VENTA
-      const saleRef = doc(collection(db, "sales"))
+      // 1. ESTRUCTURA DEL DOCUMENTO DE VENTA (Ruta segura por negocio)
+      const saleRef = doc(collection(db, "negocios", user.uid, "ventas"))
+      
       const saleData = {
-        ownerId: user.uid,        // Confirmado: ID del dueño del negocio
+        ownerId: user.uid,        // ID del dueño del negocio para reglas de seguridad
         userId: user.uid,         // Usuario que realizó la venta
-        userEmail: user.email,    // Confirmado: Email para auditoría
+        userEmail: user.email,    // Email para auditoría
         date: serverTimestamp(),
-        items: cartItems,         // Array de items con productId, name, qty, price, subtotal
+        items: cartItems,         // Detalle de productos
         total: total,
         paymentMethod: method,
         amountPaid: paid,
@@ -95,41 +90,45 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       
       batch.set(saleRef, saleData)
 
-      // 2. DESCUENTO DE STOCK CON WRITE BATCH
-      // Recorremos el carrito y añadimos la actualización de stock al lote
+      // 2. DESCUENTO DE STOCK ATÓMICO (Ruta segura por negocio)
       cartItems.forEach((item) => {
-        const productRef = doc(db, "products", item.productId)
+        const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
         batch.update(productRef, {
-          // decrementamos el stock atómicamente
           stock: increment(-item.quantity)
         })
       })
 
       // 3. EJECUCIÓN ATÓMICA
-      // Si falla una sola operación, no se guarda nada (integridad de datos)
       await batch.commit()
       
       setIsProcessing(false)
-      onConfirm() // Notifica a la página principal para limpiar carrito y mostrar éxito
+      onConfirm() 
     } catch (error: any) {
       console.error("Error al procesar la venta:", error)
       setIsProcessing(false)
       toast({ 
         title: "Error crítico", 
-        description: "No se pudo completar la venta. Verifique su conexión.", 
+        description: "No se pudo completar la venta. Verifique permisos.", 
         variant: "destructive" 
       })
     }
   }
 
-  const quickAmounts = Array.from(new Set([
-    total,
-    Math.ceil(total / 20) * 20,
-    Math.ceil(total / 50) * 50,
-    Math.ceil(total / 100) * 100,
-    Math.ceil(total / 200) * 200,
-    Math.ceil(total / 500) * 500,
-  ])).filter(a => a >= total).sort((a, b) => a - b).slice(0, 5)
+  const quickAmounts = useMemo(() => {
+    const suggestions = [
+      total,
+      Math.ceil(total / 20) * 20,
+      Math.ceil(total / 50) * 50,
+      Math.ceil(total / 100) * 100,
+      Math.ceil(total / 200) * 200,
+      Math.ceil(total / 500) * 500,
+    ]
+    // Filtrar duplicados y montos menores al total
+    return Array.from(new Set(suggestions))
+      .filter(a => a >= total)
+      .sort((a, b) => a - b)
+      .slice(0, 5)
+  }, [total])
 
   return (
     <Dialog open={isOpen} onOpenChange={isProcessing ? undefined : onClose}>
