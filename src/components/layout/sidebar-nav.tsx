@@ -44,13 +44,11 @@ const menuItems = [
 
 export function SidebarNav() {
   const pathname = usePathname()
-  // Usamos null inicialmente para que el servidor y el primer render del cliente coincidan (ninguna ruta activa)
-  const [activePath, setActivePath] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    // Solo después del montaje actualizamos la ruta activa
-    setActivePath(pathname)
-  }, [pathname])
+    setMounted(true)
+  }, [])
 
   return (
     <Sidebar collapsible="icon" className="bg-black text-white border-none shadow-2xl">
@@ -81,7 +79,8 @@ export function SidebarNav() {
           <SidebarGroupContent>
             <SidebarMenu className="px-3 gap-1.5">
               {menuItems.map((item) => {
-                const isActive = activePath === item.href
+                // Durante la hidratación (mounted=false), ningún item está activo para coincidir con el servidor
+                const isActive = mounted ? pathname === item.href : false
                 
                 return (
                   <SidebarMenuItem key={item.href}>
