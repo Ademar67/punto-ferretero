@@ -83,48 +83,63 @@ export default function POSPage() {
     setTimeout(() => searchInputRef.current?.focus(), 10)
   }
 
+  // --- VALIDACIÓN DE ESCANEO POR TECLADO / PISTOLA ---
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchTerm.trim()) {
       e.preventDefault()
       
-      const codeToSearch = searchTerm.trim().toLowerCase()
-      const exactMatch = products?.find(p => p.code.toLowerCase() === codeToSearch)
+      const rawCode = searchTerm.trim()
+      const normalizedCode = rawCode.toUpperCase()
+      
+      console.log(`[Pistola] Código leído: "${rawCode}" -> Normalizado: "${normalizedCode}"`)
+      
+      const exactMatch = products?.find(p => p.code.toUpperCase() === normalizedCode)
       
       if (exactMatch) {
         addToCart(exactMatch)
         setSearchTerm("")
-      } else if (filteredProducts.length === 1) {
-        addToCart(filteredProducts[0])
-        setSearchTerm("")
+        toast({
+          title: "PRODUCTO IDENTIFICADO",
+          description: exactMatch.name,
+          className: "bg-black text-primary border-primary border-2 font-black",
+        })
       } else {
         playBeep(220, 0.3)
         toast({
-          title: "SIN COINCIDENCIA",
-          description: `Código "${searchTerm}" no encontrado.`,
+          title: "CÓDIGO NO ENCONTRADO",
+          description: `El código "${normalizedCode}" no existe en el catálogo.`,
           variant: "destructive",
-          className: "bg-black text-red-500 border-red-500 border-2 font-black",
+          className: "bg-red-600 text-white font-black",
         })
         setSearchTerm("")
       }
     }
   }
 
+  // --- VALIDACIÓN DE ESCANEO POR CÁMARA ---
   const handleCameraScan = (code: string) => {
-    const product = products?.find(p => p.code.toLowerCase() === code.toLowerCase().trim())
+    const rawCode = code.trim()
+    const normalizedCode = rawCode.toUpperCase()
+    
+    console.log(`[Cámara] Código detectado: "${rawCode}" -> Normalizado: "${normalizedCode}"`)
+    
+    const product = products?.find(p => p.code.toUpperCase() === normalizedCode)
+    
     if (product) {
       addToCart(product)
       setIsScannerOpen(false)
       toast({
         title: "ESCANEADO EXITOSO",
-        description: `${product.name} agregado.`,
+        description: product.name,
         className: "bg-black text-primary border-primary border-2 font-black",
       })
     } else {
       playBeep(220, 0.3)
       toast({
-        title: "CÓDIGO DESCONOCIDO",
-        description: `El código ${code} no existe.`,
+        title: "PRODUCTO DESCONOCIDO",
+        description: `No existe un producto con el código "${normalizedCode}".`,
         variant: "destructive",
+        className: "bg-red-600 text-white font-black",
       })
     }
   }
