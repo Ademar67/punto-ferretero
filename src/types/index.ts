@@ -1,3 +1,4 @@
+
 export type UserRole = 'admin' | 'cajero';
 
 export interface User {
@@ -20,9 +21,16 @@ export interface Product {
   precioVenta: number;
   stockActual: number;
   stockMinimo: number;
-  unidad: string; // pza, caja, kg, m, etc.
+  unidad: string; 
   activo: boolean;
   createdAt: any;
+}
+
+export interface RemoteScan {
+  id: string;
+  codigo: string;
+  timestamp: any;
+  ownerId: string;
 }
 
 export interface Category {

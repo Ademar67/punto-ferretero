@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -15,7 +16,8 @@ import {
   Settings,
   LogOut,
   Hammer,
-  Loader2
+  Loader2,
+  Smartphone
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -36,6 +38,7 @@ import { signOut } from "firebase/auth"
 const menuItems = [
   { name: "Resumen", icon: LayoutDashboard, href: "/dashboard" },
   { name: "Nueva Venta", icon: ShoppingCart, href: "/pos" },
+  { name: "Escáner Remoto", icon: Smartphone, href: "/remote-scanner" },
   { name: "Productos", icon: Package, href: "/productos" },
   { name: "Inventario", icon: ClipboardList, href: "/inventario" },
   { name: "Categorías", icon: Tags, href: "/categorias" },

@@ -1,18 +1,20 @@
+
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle, Camera } from "lucide-react"
+import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle, Camera, Smartphone, Wifi } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
 import { PaymentModal } from "@/components/pos/payment-modal"
 import { BarcodeScanner } from "@/components/pos/barcode-scanner"
-import { Product, SaleItem } from "@/types"
+import { Product, SaleItem, RemoteScan } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, query, where, limit, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, query, where, limit, addDoc, serverTimestamp, onSnapshot, doc, deleteDoc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 
 export default function POSPage() {
   const { user, isUserLoading } = useUser()
@@ -37,6 +39,42 @@ export default function POSPage() {
   }, [db, user?.uid])
 
   const { data: products, isLoading: loadingProducts } = useCollection<Product>(productsQuery)
+
+  // Listener para Escáner Remoto
+  useEffect(() => {
+    if (!db || !user?.uid || !products) return
+
+    const remoteScanCol = collection(db, "negocios", user.uid, "remoteScans")
+    const unsubscribe = onSnapshot(remoteScanCol, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const scan = change.doc.data() as RemoteScan
+          const normalizedCode = scan.codigo.toUpperCase()
+          
+          const product = products.find(p => p.codigo.toUpperCase() === normalizedCode)
+          if (product) {
+            addToCart(product)
+            toast({
+              title: "ESCÁNER REMOTO",
+              description: `${product.nombre} agregado.`,
+              className: "bg-black text-primary border-primary border-2 font-black",
+            })
+          } else {
+            toast({
+              title: "ERROR REMOTO",
+              description: `Código "${normalizedCode}" no existe.`,
+              variant: "destructive",
+            })
+          }
+          
+          // "Consumir" el escaneo eliminándolo de Firestore
+          deleteDoc(doc(db, "negocios", user.uid!, "remoteScans", change.doc.id))
+        }
+      })
+    })
+
+    return () => unsubscribe()
+  }, [db, user?.uid, products])
 
   useEffect(() => {
     setMounted(true)
@@ -93,20 +131,12 @@ export default function POSPage() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchTerm.trim()) {
       e.preventDefault()
-      
       const normalizedCode = searchTerm.trim().toUpperCase()
-      console.log(`[Escáner] Procesando código: "${normalizedCode}"`)
-      
       const exactMatch = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
       
       if (exactMatch) {
         addToCart(exactMatch)
         setSearchTerm("")
-        toast({
-          title: "PRODUCTO AGREGADO",
-          description: exactMatch.nombre,
-          className: "bg-black text-primary border-primary border-2 font-black",
-        })
       } else {
         playBeep(220, 0.3)
         toast({
@@ -122,18 +152,11 @@ export default function POSPage() {
 
   const handleCameraScan = (code: string) => {
     const normalizedCode = code.trim().toUpperCase()
-    console.log(`[Cámara] Procesando código: "${normalizedCode}"`)
-    
     const product = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
     
     if (product) {
       addToCart(product)
       setIsScannerOpen(false)
-      toast({
-        title: "ESCANEADO EXITOSO",
-        description: product.nombre,
-        className: "bg-black text-primary border-primary border-2 font-black",
-      })
     } else {
       playBeep(220, 0.3)
       toast({
@@ -149,11 +172,7 @@ export default function POSPage() {
     setCart(prev => prev.map(item => {
       if (item.productId === productId) {
         const newQty = Math.max(1, item.quantity + delta)
-        return { 
-          ...item, 
-          quantity: newQty, 
-          subtotal: Number((newQty * item.price).toFixed(2))
-        }
+        return { ...item, quantity: newQty, subtotal: Number((newQty * item.price).toFixed(2)) }
       }
       return item
     }))
@@ -255,13 +274,19 @@ export default function POSPage() {
               />
             </div>
           </div>
-          <Button 
-            onClick={() => setIsScannerOpen(true)}
-            className="bg-primary hover:bg-white text-black font-black uppercase italic tracking-tighter h-14 px-6 rounded-xl flex items-center gap-2 w-full md:w-auto"
-          >
-            <Camera className="w-5 h-5" />
-            Cámara
-          </Button>
+          <div className="flex gap-2 w-full md:w-auto">
+            <Button 
+              onClick={() => setIsScannerOpen(true)}
+              className="bg-primary hover:bg-white text-black font-black uppercase italic tracking-tighter h-14 px-6 rounded-xl flex items-center gap-2 flex-1 md:flex-initial"
+            >
+              <Camera className="w-5 h-5" />
+              Cámara
+            </Button>
+            <Badge className="bg-green-500 text-black font-black flex items-center gap-2 px-4 rounded-xl h-14">
+              <Wifi className="w-4 h-4" />
+              Remoto ON
+            </Badge>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
@@ -316,13 +341,7 @@ export default function POSPage() {
       </div>
 
       <div className="w-full lg:w-[450px] bg-white border-l-4 border-black flex flex-col shadow-2xl relative z-20">
-        <POSCart 
-          items={cart} 
-          updateQuantity={updateQuantity} 
-          removeItem={removeItem} 
-          total={total} 
-        />
-
+        <POSCart items={cart} updateQuantity={updateQuantity} removeItem={removeItem} total={total} />
         <div className="p-6 bg-white border-t border-muted">
           <Button 
             className="w-full h-20 text-2xl font-black bg-primary hover:bg-black hover:text-primary text-black shadow-xl rounded-2xl transition-all active:scale-95 disabled:opacity-30 flex flex-col items-center justify-center gap-1"
