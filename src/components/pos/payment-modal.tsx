@@ -13,10 +13,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2 } from "lucide-react"
+import { Banknote, CreditCard, Send, History, CheckCircle2, Calculator, Loader2, AlertCircle } from "lucide-react"
 import { PaymentMethod, SaleItem } from "@/types"
 import { useFirestore, useUser } from "@/firebase"
 import { collection, doc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
 
 interface PaymentModalProps {
   isOpen: boolean
@@ -33,6 +34,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const [isProcessing, setIsProcessing] = useState(false)
   const amountInputRef = useRef<HTMLInputElement>(null)
   
+  const { toast } = useToast()
   const db = useFirestore()
   const { user } = useUser()
 
@@ -50,12 +52,24 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     setChange(Math.max(0, paid - total))
   }, [amountPaid, total])
 
+  /**
+   * PROCESO DE FINALIZAR COBRO
+   * Guarda la venta y descuenta inventario de forma atómica.
+   */
   const handleConfirm = async () => {
-    if (!db || !user) return
+    if (!db) {
+      toast({ title: "Error", description: "Base de datos no disponible.", variant: "destructive" })
+      return
+    }
+    
+    if (!user) {
+      toast({ title: "Error", description: "Usuario no autenticado.", variant: "destructive" })
+      return
+    }
 
     const paid = parseFloat(amountPaid) || total
     if (method === 'efectivo' && paid < total) {
-      alert("El monto recibido no puede ser menor al total")
+      toast({ title: "Monto insuficiente", description: "El dinero recibido es menor al total.", variant: "destructive" })
       return
     }
 
@@ -64,38 +78,47 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     try {
       const batch = writeBatch(db)
       
-      // 1. Crear documento de venta
+      // 1. ESTRUCTURA DEL DOCUMENTO DE VENTA
       const saleRef = doc(collection(db, "sales"))
-      batch.set(saleRef, {
-        ownerId: user.uid,
-        userId: user.uid,
-        userEmail: user.email,
+      const saleData = {
+        ownerId: user.uid,        // Confirmado: ID del dueño del negocio
+        userId: user.uid,         // Usuario que realizó la venta
+        userEmail: user.email,    // Confirmado: Email para auditoría
         date: serverTimestamp(),
-        items: cartItems,
+        items: cartItems,         // Array de items con productId, name, qty, price, subtotal
         total: total,
         paymentMethod: method,
         amountPaid: paid,
         change: change,
         createdAt: serverTimestamp()
-      })
+      }
+      
+      batch.set(saleRef, saleData)
 
-      // 2. Actualizar stock para cada producto
+      // 2. DESCUENTO DE STOCK CON WRITE BATCH
+      // Recorremos el carrito y añadimos la actualización de stock al lote
       cartItems.forEach((item) => {
         const productRef = doc(db, "products", item.productId)
         batch.update(productRef, {
+          // decrementamos el stock atómicamente
           stock: increment(-item.quantity)
         })
       })
 
-      // 3. Ejecutar lote (Atomic write)
+      // 3. EJECUCIÓN ATÓMICA
+      // Si falla una sola operación, no se guarda nada (integridad de datos)
       await batch.commit()
       
       setIsProcessing(false)
-      onConfirm()
-    } catch (error) {
+      onConfirm() // Notifica a la página principal para limpiar carrito y mostrar éxito
+    } catch (error: any) {
       console.error("Error al procesar la venta:", error)
       setIsProcessing(false)
-      alert("Hubo un error al guardar la venta. Intente de nuevo.")
+      toast({ 
+        title: "Error crítico", 
+        description: "No se pudo completar la venta. Verifique su conexión.", 
+        variant: "destructive" 
+      })
     }
   }
 
@@ -113,12 +136,12 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none rounded-[3rem] shadow-2xl">
         <DialogHeader className="bg-black p-10 text-white relative border-b-8 border-primary">
           <div className="flex flex-col">
-            <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px] mb-2 italic">Caja Registradora</span>
-            <DialogTitle className="text-4xl font-black italic uppercase tracking-tighter leading-none">Confirmar Cobro</DialogTitle>
+            <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px] mb-2 italic">Terminal de Cobro</span>
+            <DialogTitle className="text-4xl font-black italic uppercase tracking-tighter leading-none">Confirmar Venta</DialogTitle>
           </div>
           <div className="mt-10 flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-white/30 text-[10px] font-black uppercase tracking-[0.3em]">Importe Total</span>
+              <span className="text-white/30 text-[10px] font-black uppercase tracking-[0.3em]">Total a Pagar</span>
               <div className="text-7xl font-black text-primary tracking-tighter italic leading-none">$ {total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
             </div>
             <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
@@ -145,7 +168,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                 { id: 'transferencia', icon: Send, label: 'Transfer.' },
                 { id: 'credito', icon: History, label: 'Crédito' }
               ].map((m) => (
-                <div key={`method-${m.id}`} className="relative group">
+                <div key={`method-${m.id}`} className="relative">
                   <RadioGroupItem value={m.id} id={`input-${m.id}`} className="peer sr-only" />
                   <Label
                     htmlFor={`input-${m.id}`}
@@ -162,7 +185,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
           {method === 'efectivo' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500 bg-muted/20 p-8 rounded-[2.5rem] border-2 border-muted/50">
               <div className="flex flex-col gap-4">
-                <Label className="text-xs font-black uppercase tracking-[0.2em] text-black/40">Sugerencias de Pago</Label>
+                <Label className="text-xs font-black uppercase tracking-[0.2em] text-black/40">Sugerencias (Rápido)</Label>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
                   {quickAmounts.map((amt) => (
                     <Button 
@@ -180,7 +203,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                  <Label htmlFor="amountPaid" className="font-black text-[11px] uppercase tracking-widest text-black/60 italic">Recibido del Cliente</Label>
+                  <Label htmlFor="amountPaid" className="font-black text-[11px] uppercase tracking-widest text-black/60 italic">Recibido</Label>
                   <div className="relative">
                     <span className="absolute left-5 top-1/2 -translate-y-1/2 text-3xl font-black text-black/20">$</span>
                     <Input 
@@ -195,7 +218,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <Label className="font-black text-[11px] uppercase tracking-widest text-green-600 italic">Cambio a Entregar</Label>
+                  <Label className="font-black text-[11px] uppercase tracking-widest text-green-600 italic">Cambio</Label>
                   <div className="h-24 flex items-center bg-green-50 rounded-[1.5rem] border-4 border-green-200 px-6 shadow-inner">
                     <span className="text-5xl font-black text-green-600 tracking-tighter italic">$ {change.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
                   </div>
@@ -220,7 +243,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
             ) : (
               <>
                 <CheckCircle2 className="w-6 h-6 group-hover:scale-125 transition-transform" />
-                FINALIZAR COBRO
+                CONFIRMAR PAGO
               </>
             )}
           </Button>
