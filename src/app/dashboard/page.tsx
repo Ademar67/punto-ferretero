@@ -43,9 +43,9 @@ export default function DashboardPage() {
           </div>
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-black uppercase italic leading-none">
-              Panel de <span className="text-primary">Control</span>
+              Punto <span className="text-primary">Ferretero</span>
             </h1>
-            <p className="text-muted-foreground mt-1 font-medium">Bienvenido a Punto Ferretero. Tu negocio, bajo control.</p>
+            <p className="text-muted-foreground mt-1 font-medium">Panel de Control. Tu negocio, bajo control.</p>
           </div>
         </div>
         <div className="flex gap-3">
