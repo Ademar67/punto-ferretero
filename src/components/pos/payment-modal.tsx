@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Banknote, CreditCard, Send, History, Check } from "lucide-react"
+import { Banknote, CreditCard, Send, History } from "lucide-react"
 import { PaymentMethod } from "@/types"
 
 interface PaymentModalProps {
@@ -32,8 +32,9 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
     if (isOpen) {
       setAmountPaid(total.toString())
       setMethod('efectivo')
-      // Pequeño delay para asegurar que el input exista
-      setTimeout(() => amountInputRef.current?.focus(), 100)
+      // Pequeño delay para asegurar que el input exista y tome el foco
+      const timer = setTimeout(() => amountInputRef.current?.focus(), 100)
+      return () => clearTimeout(timer)
     }
   }, [isOpen, total])
 
@@ -46,13 +47,14 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
     onConfirm(method, parseFloat(amountPaid) || total)
   }
 
-  const quickAmounts = [
+  // Generamos montos sugeridos únicos para evitar errores de duplicidad de keys
+  const quickAmounts = Array.from(new Set([
     total,
     Math.ceil(total / 50) * 50,
     Math.ceil(total / 100) * 100,
     Math.ceil(total / 200) * 200,
     Math.ceil(total / 500) * 500,
-  ]
+  ])).sort((a, b) => a - b)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -101,7 +103,7 @@ export function PaymentModal({ isOpen, onClose, total, onConfirm }: PaymentModal
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                 {quickAmounts.map((amt) => (
                   <Button 
-                    key={amt} 
+                    key={`quick-amount-${amt}`} 
                     variant="outline" 
                     onClick={() => setAmountPaid(amt.toString())}
                     className="whitespace-nowrap rounded-full border-2 border-black font-black text-xs h-10 px-4 hover:bg-black hover:text-white"
