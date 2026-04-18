@@ -44,17 +44,19 @@ const menuItems = [
 
 export function SidebarNav() {
   const pathname = usePathname()
-  const [mounted, setMounted] = useState(false)
+  // Usamos null inicialmente para que el servidor y el primer render del cliente coincidan (ninguna ruta activa)
+  const [activePath, setActivePath] = useState<string | null>(null)
 
-  // Prevenir errores de hidratación: solo activamos estados visuales después del montaje
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    // Solo después del montaje actualizamos la ruta activa
+    setActivePath(pathname)
+  }, [pathname])
 
   return (
     <Sidebar collapsible="icon" className="bg-black text-white border-none shadow-2xl">
       <SidebarHeader className="flex items-center justify-center py-10 border-b border-white/5">
         <div className="flex items-center gap-4 px-2">
+          {/* Logo: Martillo en círculo negro sobre fondo amarillo */}
           <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-[0_0_30px_rgba(255,214,0,0.2)] group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 transition-all border-4 border-black">
             <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8">
               <Hammer className="w-6 h-6 text-primary fill-primary group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
@@ -79,8 +81,7 @@ export function SidebarNav() {
           <SidebarGroupContent>
             <SidebarMenu className="px-3 gap-1.5">
               {menuItems.map((item) => {
-                // Durante SSR o antes de montar, ningún ítem se marca como activo para evitar el error
-                const isActive = mounted && pathname === item.href
+                const isActive = activePath === item.href
                 
                 return (
                   <SidebarMenuItem key={item.href}>
