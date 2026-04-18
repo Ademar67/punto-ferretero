@@ -2,9 +2,9 @@
   "placeholderImages": [
     {
       "id": "logo",
-      "description": "FerreSys TPV Logo Placeholder",
-      "imageUrl": "https://picsum.photos/seed/ferresys/200/200",
-      "imageHint": "hardware store"
+      "description": "Logotipo Punto Ferretero (Martillo en círculo negro sobre fondo amarillo)",
+      "imageUrl": "https://picsum.photos/seed/puntoferretero/400/400",
+      "imageHint": "hammer hardware"
     },
     {
       "id": "hero",

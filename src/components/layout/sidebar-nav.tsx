@@ -12,7 +12,8 @@ import {
   Banknote, 
   BarChart3, 
   Settings,
-  LogOut
+  LogOut,
+  Hammer
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -47,12 +48,20 @@ export function SidebarNav() {
     <Sidebar collapsible="icon" className="bg-black text-white border-r-0">
       <SidebarHeader className="flex items-center justify-center py-8 border-b border-white/10">
         <div className="flex items-center gap-3 px-2">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-black font-black text-2xl shadow-[0_0_15px_rgba(255,214,0,0.3)]">
-            P
+          {/* Logo inspirado en la imagen: Círculo negro con martillo amarillo */}
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(255,214,0,0.2)] group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 transition-all">
+            <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8">
+              <Hammer className="w-6 h-6 text-primary fill-primary group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
+            </div>
           </div>
-          <span className="font-headline font-black text-xl tracking-tight group-data-[collapsible=icon]:hidden">
-            PUNTO <span className="text-primary">FERRETERO</span>
-          </span>
+          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+            <span className="font-headline font-black text-xl tracking-tighter leading-none italic uppercase">
+              PUNTO
+            </span>
+            <span className="font-headline font-black text-xl tracking-tighter leading-none italic uppercase text-primary">
+              FERRETERO
+            </span>
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent className="py-6">
