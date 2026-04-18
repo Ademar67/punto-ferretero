@@ -87,7 +87,7 @@ export default function VentasPage() {
           ownerId: user.uid,
           productId: item.productId,
           productName: item.name,
-          codigo: item.productId, // Idealmente el código real
+          codigo: item.productId,
           type: 'cancelacion',
           quantity: item.quantity,
           reason: `Cancelación de venta folio ${cancellingSale.folio}`,
@@ -304,6 +304,9 @@ export default function VentasPage() {
 
       <Dialog open={!!viewingTicket} onOpenChange={(open) => !open && setViewingTicket(null)}>
         <DialogContent className="max-w-sm border-none p-0 bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Detalle del Ticket</DialogTitle>
+          </DialogHeader>
           <div className="bg-white p-6 rounded-2xl shadow-2xl relative">
             <Button variant="ghost" size="icon" className="absolute right-2 top-2 rounded-full" onClick={() => setViewingTicket(null)}>
               <X className="w-4 h-4" />

@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { ToastAction } from "@/components/ui/toast"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function POSPage() {
   const { user, isUserLoading } = useUser()
@@ -154,6 +154,10 @@ export default function POSPage() {
     }))
   }
 
+  const removeItem = (productId: string) => {
+    setCart(prev => prev.filter(item => item.productId !== productId))
+  }
+
   const total = useMemo(() => cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0), [cart])
 
   const playBeep = (freq = 880, dur = 0.15) => {
@@ -268,6 +272,9 @@ export default function POSPage() {
 
       <Dialog open={!!lastSale} onOpenChange={(open) => !open && setLastSale(null)}>
         <DialogContent className="max-w-md border-none p-0 bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Venta Exitosa</DialogTitle>
+          </DialogHeader>
           <div className="bg-white p-10 rounded-3xl shadow-2xl text-center space-y-6">
             <div className="flex justify-center">
               <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white">
@@ -279,7 +286,7 @@ export default function POSPage() {
               <p className="text-muted-foreground font-medium">El ticket ha sido generado correctamente.</p>
             </div>
             <div className="bg-muted/30 p-4 rounded-2xl border-2 border-dashed border-muted">
-              <TicketView sale={lastSale!} />
+              {lastSale && <TicketView sale={lastSale} />}
             </div>
             <div className="flex gap-4">
               <Button variant="outline" className="flex-1 h-14 font-black uppercase tracking-widest text-xs border-2 border-black rounded-xl" onClick={() => window.print()}>
