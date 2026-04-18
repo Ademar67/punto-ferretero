@@ -1,3 +1,16 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "logo",
+      "description": "FerreSys TPV Logo Placeholder",
+      "imageUrl": "https://picsum.photos/seed/ferresys/200/200",
+      "imageHint": "hardware store"
+    },
+    {
+      "id": "hero",
+      "description": "Hardware store interior",
+      "imageUrl": "https://picsum.photos/seed/store/1200/600",
+      "imageHint": "hardware store"
+    }
+  ]
 }
