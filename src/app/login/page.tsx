@@ -42,7 +42,7 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error("Login error:", err)
       let message = "Error al iniciar sesión. Verifica tus credenciales."
-      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {
+      if (err.code === "auth/user-not-found" || err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
         message = "Correo o contraseña incorrectos."
       } else if (err.code === "auth/invalid-email") {
         message = "El formato del correo no es válido."
@@ -123,7 +123,7 @@ export default function LoginPage() {
 
           <div className="pt-4 border-t border-dashed border-muted text-center">
              <p className="text-[9px] text-muted-foreground font-black uppercase tracking-[0.4em]">
-              © 2024 PUNTO FERRETERO • SISTEMA DE CONTROL
+              © 2026 PUNTO FERRETERO • SISTEMA DE CONTROL
             </p>
           </div>
         </CardContent>
