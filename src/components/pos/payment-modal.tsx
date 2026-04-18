@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { 
   Dialog, 
   DialogContent, 
@@ -123,7 +123,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       Math.ceil(total / 200) * 200,
       Math.ceil(total / 500) * 500,
     ]
-    // Filtrar duplicados y montos menores al total
+    // Filtrar duplicados y montos menores al total para evitar errores de "key" única
     return Array.from(new Set(suggestions))
       .filter(a => a >= total)
       .sort((a, b) => a - b)
