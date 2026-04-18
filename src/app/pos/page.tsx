@@ -175,7 +175,7 @@ export default function POSPage() {
   }
 
   const total = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0)
+    return cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0);
   }, [cart]);
 
   const handleFinishSale = (saleData: Sale) => {

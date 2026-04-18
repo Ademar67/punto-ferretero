@@ -17,7 +17,8 @@ import {
   LogOut,
   Hammer,
   Loader2,
-  Smartphone
+  Smartphone,
+  FileText
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -38,6 +39,7 @@ import { signOut } from "firebase/auth"
 const menuItems = [
   { name: "Resumen", icon: LayoutDashboard, href: "/dashboard" },
   { name: "Nueva Venta", icon: ShoppingCart, href: "/pos" },
+  { name: "Cotizaciones", icon: FileText, href: "/cotizaciones" },
   { name: "Escáner Remoto", icon: Smartphone, href: "/remote-scanner" },
   { name: "Productos", icon: Package, href: "/productos" },
   { name: "Inventario", icon: ClipboardList, href: "/inventario" },
@@ -100,7 +102,7 @@ export function SidebarNav() {
           <SidebarGroupContent>
             <SidebarMenu className="px-3 gap-1.5">
               {menuItems.map((item) => {
-                const isActive = mounted ? pathname === item.href : false
+                const isActive = mounted ? pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) : false
                 
                 return (
                   <SidebarMenuItem key={item.href}>

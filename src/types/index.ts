@@ -74,6 +74,27 @@ export interface Sale {
   createdAt: any;
 }
 
+export type QuotationStatus = 'pendiente' | 'convertida' | 'cancelada';
+
+export interface Quotation {
+  id: string;
+  ownerId: string;
+  folio: string;
+  date: any;
+  items: SaleItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  userId: string;
+  userEmail: string;
+  status: QuotationStatus;
+  customerName?: string;
+  customerPhone?: string;
+  notes?: string;
+  convertedToSaleId?: string;
+  createdAt: any;
+}
+
 export type InventoryMovementType = 'entrada' | 'salida' | 'ajuste' | 'venta' | 'cancelacion';
 
 export interface InventoryMovement {
