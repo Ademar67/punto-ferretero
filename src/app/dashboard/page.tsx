@@ -11,6 +11,7 @@ import {
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
@@ -22,9 +23,9 @@ export default function DashboardPage() {
   ]
 
   const quickActions = [
-    { name: "Nueva Venta", href: "/pos", icon: Plus, color: "bg-primary text-black" },
-    { name: "Ver Productos", href: "/productos", icon: Package, color: "bg-white text-black border-2 border-black" },
-    { name: "Reportes", href: "/reportes", icon: TrendingUp, color: "bg-black text-white" },
+    { name: "Nueva Venta", href: "/pos", icon: Plus, color: "bg-primary text-black hover:bg-primary/90" },
+    { name: "Ver Productos", href: "/productos", icon: Package, color: "bg-white text-black border-2 border-black hover:bg-black hover:text-white" },
+    { name: "Reportes", href: "/reportes", icon: TrendingUp, color: "bg-black text-white hover:bg-black/80" },
   ]
 
   const lowStockItems = [
@@ -34,21 +35,21 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-8 p-6 lg:p-10 bg-[#f8f9fa] min-h-full">
+    <div className="flex flex-col gap-8 p-6 lg:p-10 bg-[#f4f4f5] min-h-full text-black">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-black flex items-center justify-center shrink-0 shadow-lg">
-            <Hammer className="w-8 h-8 text-primary fill-primary" />
+        <div className="flex items-center gap-5">
+          <div className="w-16 h-16 rounded-2xl bg-black flex items-center justify-center shrink-0 shadow-xl rotate-3">
+            <Hammer className="w-8 h-8 text-primary fill-primary -rotate-3" />
           </div>
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-black uppercase italic leading-none">
-              Panel de <span className="text-primary underline decoration-black">Control</span>
+              Panel de <span className="text-primary">Control</span>
             </h1>
             <p className="text-muted-foreground mt-1 font-medium">Bienvenido a Punto Ferretero. Tu negocio, bajo control.</p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-black font-black shadow-xl h-14 px-8 rounded-xl transition-all hover:scale-105 active:scale-95 border-b-4 border-black/20">
+          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-black font-black shadow-lg h-14 px-8 rounded-xl transition-all hover:-translate-y-1">
             <Link href="/pos" className="flex items-center gap-3">
               <ShoppingCart className="w-6 h-6" />
               NUEVA VENTA
@@ -59,13 +60,11 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.label} className="border-none shadow-sm hover:shadow-xl transition-all group cursor-default bg-white overflow-hidden relative">
-            <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+          <Card key={stat.label} className="border-none shadow-sm hover:shadow-md transition-all group cursor-default bg-white overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-muted group-hover:bg-primary transition-colors" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">{stat.label}</CardTitle>
-              <div className={cn("p-2 rounded-full bg-muted group-hover:bg-primary group-hover:text-black transition-colors")}>
-                <stat.icon className="h-4 w-4" />
-              </div>
+              <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{stat.label}</CardTitle>
+              <stat.icon className={cn("h-4 w-4", stat.color)} />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-black tracking-tight">{stat.value}</div>
@@ -79,15 +78,18 @@ export default function DashboardPage() {
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         <Card className="col-span-1 lg:col-span-2 border-none shadow-sm bg-white overflow-hidden rounded-2xl">
-          <CardHeader className="border-b border-border/50 bg-muted/20">
-            <CardTitle className="text-xl font-black uppercase italic">Productos más Vendidos</CardTitle>
+          <CardHeader className="border-b border-border/50 bg-white p-6">
+            <CardTitle className="text-xl font-black uppercase italic flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Productos más Vendidos
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y divide-border">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center justify-between p-5 hover:bg-primary/5 transition-colors">
+                <div key={i} className="flex items-center justify-between p-5 hover:bg-muted/30 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-black text-primary flex items-center justify-center font-black">
+                    <div className="w-8 h-8 rounded-lg bg-black text-primary flex items-center justify-center font-black text-xs">
                       {i}
                     </div>
                     <div>
@@ -97,12 +99,12 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-black text-lg text-black">$1,240.00</p>
-                    <p className="text-xs font-bold text-primary bg-black px-2 py-0.5 rounded uppercase inline-block">42 vendidos</p>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[10px] font-black uppercase">42 vendidos</Badge>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="p-4 bg-muted/20 border-t border-border">
+            <div className="p-4 bg-muted/10 border-t border-border">
               <Button variant="ghost" className="w-full font-black uppercase tracking-tight hover:bg-primary hover:text-black transition-all" asChild>
                 <Link href="/reportes">Ver reporte completo <ArrowRight className="ml-2 w-4 h-4" /></Link>
               </Button>
@@ -110,29 +112,37 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-xl border-t-8 border-t-black bg-white rounded-2xl overflow-hidden">
-          <CardHeader className="bg-primary/10">
+        <Card className="border-none shadow-sm bg-white rounded-2xl overflow-hidden">
+          <CardHeader className="bg-red-50/50 border-b border-red-100">
             <CardTitle className="flex items-center gap-2 text-black font-black italic uppercase text-lg">
               <AlertTriangle className="w-6 h-6 text-red-600" />
               URGENTE: STOCK BAJO
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="space-y-4">
+            <div className="space-y-5">
               {lowStockItems.map((item) => (
-                <div key={item.id} className="flex flex-col gap-2 p-4 rounded-xl border-2 border-muted bg-[#fdfdfd] hover:border-primary transition-colors">
-                  <span className="font-black text-xs text-black uppercase tracking-tight">{item.name}</span>
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                    <span className="bg-muted px-2 py-1 rounded">Actual: {item.stock}</span>
-                    <span className="text-red-600">Requerido: {item.minStock}</span>
+                <div key={item.id} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <span className="font-black text-[11px] text-black uppercase tracking-tight">{item.name}</span>
+                    <span className="text-[10px] font-black text-red-600">ACTUAL: {item.stock}</span>
                   </div>
-                  <div className="w-full bg-muted h-2.5 rounded-full overflow-hidden">
-                    <div className="bg-black h-full" style={{ width: `${(item.stock / item.minStock) * 100}%` }} />
+                  <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-full transition-all",
+                        (item.stock / item.minStock) < 0.5 ? "bg-red-600" : "bg-orange-500"
+                      )} 
+                      style={{ width: `${(item.stock / item.minStock) * 100}%` }} 
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <span className="text-[8px] font-bold text-red-600/60 uppercase">REQUERIDO: {item.minStock}</span>
                   </div>
                 </div>
               ))}
             </div>
-            <Button className="w-full mt-6 font-black uppercase tracking-widest bg-black text-primary hover:bg-black/90 h-12" asChild>
+            <Button className="w-full mt-8 font-black uppercase tracking-widest bg-black text-primary hover:bg-black/90 h-12 rounded-xl" asChild>
               <Link href="/inventario">Gestionar Inventario</Link>
             </Button>
           </CardContent>
@@ -146,14 +156,13 @@ export default function DashboardPage() {
             asChild
             variant="outline"
             className={cn(
-              "h-28 flex flex-col gap-3 items-center justify-center border-none shadow-md hover:scale-[1.05] transition-all rounded-2xl active:scale-95",
-              action.color,
-              action.name === "Nueva Venta" && "border-b-8 border-black/10"
+              "h-24 flex flex-col gap-2 items-center justify-center border-none shadow-sm hover:shadow-md hover:-translate-y-1 transition-all rounded-2xl active:scale-95",
+              action.color
             )}
           >
             <Link href={action.href}>
-              <action.icon className="w-8 h-8" />
-              <span className="font-black text-lg uppercase tracking-tighter">{action.name}</span>
+              <action.icon className="w-6 h-6" />
+              <span className="font-black text-sm uppercase tracking-tighter">{action.name}</span>
             </Link>
           </Button>
         ))}

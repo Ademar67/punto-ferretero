@@ -45,11 +45,10 @@ export function SidebarNav() {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="icon" className="bg-black text-white border-r-0">
-      <SidebarHeader className="flex items-center justify-center py-8 border-b border-white/10">
+    <Sidebar collapsible="icon" className="bg-sidebar text-sidebar-foreground border-r-0">
+      <SidebarHeader className="flex items-center justify-center py-8 border-b border-white/5">
         <div className="flex items-center gap-3 px-2">
-          {/* Logo inspirado en la imagen: Círculo negro con martillo amarillo */}
-          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_20px_rgba(255,214,0,0.2)] group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 transition-all">
+          <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-[0_0_15px_rgba(255,214,0,0.15)] group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 transition-all">
             <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:h-8">
               <Hammer className="w-6 h-6 text-primary fill-primary group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
             </div>
@@ -66,7 +65,7 @@ export function SidebarNav() {
       </SidebarHeader>
       <SidebarContent className="py-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-white/40 px-6 mb-2 group-data-[collapsible=icon]:hidden text-xs uppercase tracking-widest font-bold">
+          <SidebarGroupLabel className="text-white/30 px-6 mb-2 group-data-[collapsible=icon]:hidden text-[10px] uppercase tracking-[0.2em] font-bold">
             Menú Principal
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -78,13 +77,15 @@ export function SidebarNav() {
                     isActive={pathname === item.href}
                     tooltip={item.name}
                     className={cn(
-                      "h-11 px-4 transition-all duration-200 rounded-lg hover:bg-white/5",
-                      item.highlight && "bg-primary text-black hover:bg-primary/90 font-bold mb-2 shadow-lg shadow-primary/10",
-                      pathname === item.href && !item.highlight && "bg-white/10 text-primary font-bold"
+                      "h-11 px-4 transition-all duration-200 rounded-lg",
+                      item.highlight 
+                        ? "bg-primary text-black hover:bg-primary/90 font-bold mb-2 shadow-lg shadow-primary/10" 
+                        : "text-white/70 hover:text-white hover:bg-white/10",
+                      pathname === item.href && !item.highlight && "bg-primary text-black font-bold border-l-4 border-primary rounded-l-none"
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={cn("w-5 h-5", item.highlight ? "text-black" : "text-inherit")} />
+                      <item.icon className={cn("w-5 h-5", (pathname === item.href || item.highlight) ? "text-primary" : "text-white/60")} />
                       <span className="group-data-[collapsible=icon]:hidden">{item.name}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -94,7 +95,7 @@ export function SidebarNav() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t border-white/10 p-4">
+      <SidebarFooter className="border-t border-white/5 p-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton className="h-11 px-4 text-white/60 hover:text-red-400 hover:bg-red-400/10 transition-colors group-data-[collapsible=icon]:justify-center rounded-lg">
