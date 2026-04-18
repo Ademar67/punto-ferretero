@@ -119,7 +119,7 @@ export default function VentasPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] gap-4">
+      <div (flex flex-col items-center justify-center h-screen bg-[#F5F5F5] gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary" />
         <p className="font-black uppercase italic tracking-tighter">Consultando Historial...</p>
       </div>

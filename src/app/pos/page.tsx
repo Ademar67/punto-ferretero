@@ -87,6 +87,22 @@ export default function POSPage() {
     )
   }, [products, searchTerm])
 
+  const playBeep = (freq = 880, dur = 0.15) => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + dur);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + dur);
+    } catch (e) { }
+  }
+
   const addToCart = (product: Product) => {
     const price = Number(product.precioVenta) || 0
     setCart(prev => {
@@ -159,23 +175,7 @@ export default function POSPage() {
 
   const total = useMemo(() => {
     return cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0)
-  }, [cart])
-
-  const playBeep = (freq = 880, dur = 0.15) => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + dur);
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + dur);
-    } catch (e) { }
-  }
+  }, [cart]);
 
   const handleFinishSale = (saleData: Sale) => {
     playBeep(880, 0.2);
