@@ -1,11 +1,13 @@
+
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle } from "lucide-react"
+import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle, Camera } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
 import { PaymentModal } from "@/components/pos/payment-modal"
+import { BarcodeScanner } from "@/components/pos/barcode-scanner"
 import { Product, SaleItem } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
@@ -18,6 +20,7 @@ export default function POSPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [cart, setCart] = useState<SaleItem[]>([])
   const [isPaymentOpen, setIsPaymentOpen] = useState(false)
+  const [isScannerOpen, setIsScannerOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [isSeeding, setIsSeeding] = useState(false)
   const { toast } = useToast()
@@ -25,30 +28,28 @@ export default function POSPage() {
   
   const db = useFirestore()
 
-  // Consulta de productos activa
   const productsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
     return query(
       collection(db, "negocios", user.uid, "productos"), 
       where("active", "==", true), 
-      limit(100)
+      limit(200)
     )
   }, [db, user?.uid])
 
   const { data: products, isLoading: loadingProducts } = useCollection<Product>(productsQuery)
 
-  // Mantener el foco en el input siempre
   useEffect(() => {
     setMounted(true)
     if (user && !isUserLoading) {
       const focusInterval = setInterval(() => {
-        if (document.activeElement?.tagName !== 'INPUT' && !isPaymentOpen) {
+        if (document.activeElement?.tagName !== 'INPUT' && !isPaymentOpen && !isScannerOpen) {
           searchInputRef.current?.focus()
         }
-      }, 500)
+      }, 1000)
       return () => clearInterval(focusInterval)
     }
-  }, [user, isUserLoading, isPaymentOpen])
+  }, [user, isUserLoading, isPaymentOpen, isScannerOpen])
 
   const filteredProducts = useMemo(() => {
     if (!products) return []
@@ -78,41 +79,53 @@ export default function POSPage() {
       }]
     })
     setSearchTerm("")
-    // Feedback táctil/foco inmediato
+    playBeep(660, 0.05)
     setTimeout(() => searchInputRef.current?.focus(), 10)
   }
 
-  // Soporte para Escáner de Código de Barras
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchTerm.trim()) {
       e.preventDefault()
       
-      // Buscar por código exacto primero (Ideal para Pistola Escáner)
-      const exactMatch = products?.find(p => p.code.toLowerCase() === searchTerm.toLowerCase().trim())
+      const codeToSearch = searchTerm.trim().toLowerCase()
+      const exactMatch = products?.find(p => p.code.toLowerCase() === codeToSearch)
       
       if (exactMatch) {
         addToCart(exactMatch)
-        playBeep(660, 0.1) // Sonido suave de escaneo exitoso
+        setSearchTerm("")
       } else if (filteredProducts.length === 1) {
-        // Si no hay código exacto pero solo hay un resultado filtrado por búsqueda
         addToCart(filteredProducts[0])
-      } else if (filteredProducts.length > 1) {
-        // Si hay varios, no hacemos nada para que el cajero seleccione, o podríamos tomar el primero
-        toast({
-          title: "BÚSQUEDA AMBIGUA",
-          description: "Múltiples productos encontrados. Selecciona uno manualmente.",
-          variant: "default",
-        })
+        setSearchTerm("")
       } else {
-        // No se encontró nada
+        playBeep(220, 0.3)
         toast({
-          title: "PRODUCTO NO ENCONTRADO",
-          description: `El código "${searchTerm}" no existe en el catálogo.`,
+          title: "SIN COINCIDENCIA",
+          description: `Código "${searchTerm}" no encontrado.`,
           variant: "destructive",
           className: "bg-black text-red-500 border-red-500 border-2 font-black",
         })
         setSearchTerm("")
       }
+    }
+  }
+
+  const handleCameraScan = (code: string) => {
+    const product = products?.find(p => p.code.toLowerCase() === code.toLowerCase().trim())
+    if (product) {
+      addToCart(product)
+      setIsScannerOpen(false)
+      toast({
+        title: "ESCANEADO EXITOSO",
+        description: `${product.name} agregado.`,
+        className: "bg-black text-primary border-primary border-2 font-black",
+      })
+    } else {
+      playBeep(220, 0.3)
+      toast({
+        title: "CÓDIGO DESCONOCIDO",
+        description: `El código ${code} no existe.`,
+        variant: "destructive",
+      })
     }
   }
 
@@ -145,7 +158,7 @@ export default function POSPage() {
       gainNode.connect(audioContext.destination);
       oscillator.start();
       oscillator.stop(audioContext.currentTime + dur);
-    } catch (e) { console.warn("Audio Context Error") }
+    } catch (e) { /* ignore */ }
   };
 
   const handleFinishSale = () => {
@@ -154,8 +167,8 @@ export default function POSPage() {
     setCart([])
     setSearchTerm("")
     toast({
-      title: "VENTA REALIZADA",
-      description: `¡Transacción guardada con éxito!`,
+      title: "VENTA REGISTRADA",
+      description: `Operación finalizada correctamente.`,
       className: "bg-black text-primary border-primary border-2 font-black",
     })
     setTimeout(() => searchInputRef.current?.focus(), 500)
@@ -167,23 +180,21 @@ export default function POSPage() {
     const testProducts = [
       { name: "Martillo de Uña 16oz", code: "M-101", brand: "Truper", salePrice: 180, costPrice: 110, stock: 10, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
       { name: "Destornillador Phillips", code: "D-202", brand: "Stanley", salePrice: 45, costPrice: 25, stock: 20, minStock: 5, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
-      { name: "Cinta Métrica 5m", code: "C-303", brand: "Lufkin", salePrice: 120, costPrice: 70, stock: 15, minStock: 3, unit: "pza", categoryId: "medicion", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
-      { name: "Pala Cuadrada T-2000", code: "P-404", brand: "Truper", salePrice: 320, costPrice: 210, stock: 8, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
-      { name: "Pintura Vinílica Blanca 4L", code: "PV-505", brand: "Comex", salePrice: 450, costPrice: 280, stock: 12, minStock: 4, unit: "pza", categoryId: "pintura", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
+      { name: "Pintura Blanca 4L", code: "PV-505", brand: "Comex", salePrice: 450, costPrice: 280, stock: 12, minStock: 4, unit: "pza", categoryId: "pintura", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
     ]
     try {
       for (const p of testProducts) {
         await addDoc(collection(db, "negocios", user.uid, "productos"), p)
       }
-      toast({ title: "DATOS CARGADOS" })
-    } catch (error) { toast({ title: "ERROR", variant: "destructive" }) } finally { setIsSeeding(false) }
+      toast({ title: "CATÁLOGO INICIAL CARGADO" })
+    } catch (error) { toast({ title: "ERROR AL CARGAR", variant: "destructive" }) } finally { setIsSeeding(false) }
   }
 
   if (!mounted || isUserLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] gap-4">
         <Loader2 className="w-12 h-12 animate-spin text-primary" />
-        <p className="font-black uppercase italic tracking-tighter">Terminal Ready...</p>
+        <p className="font-black uppercase italic tracking-tighter">Terminal Inicializando...</p>
       </div>
     )
   }
@@ -192,7 +203,7 @@ export default function POSPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] p-6 text-center gap-6">
         <Lock className="w-20 h-20 text-black/10" />
-        <h1 className="text-3xl font-black uppercase italic">Sesión Requerida</h1>
+        <h1 className="text-3xl font-black uppercase italic">Autenticación Requerida</h1>
         <Button asChild size="lg" className="bg-primary text-black font-black px-10 h-14 rounded-xl">
           <Link href="/login">IR AL LOGIN</Link>
         </Button>
@@ -202,41 +213,49 @@ export default function POSPage() {
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#F5F5F5] overflow-hidden">
-      {/* PANEL IZQUIERDO: BUSCADOR Y CATÁLOGO */}
       <div className="flex-1 flex flex-col p-6 overflow-hidden">
-        <div className="bg-black p-4 rounded-2xl shadow-xl mb-6 flex items-center gap-4">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shrink-0 rotate-3">
-            <Hammer className="w-6 h-6 text-black" />
+        <div className="bg-black p-4 rounded-2xl shadow-xl mb-6 flex flex-col md:flex-row items-center gap-4">
+          <div className="flex items-center gap-4 flex-1 w-full">
+            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shrink-0 rotate-3">
+              <Hammer className="w-6 h-6 text-black" />
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 w-5 h-5" />
+              <Input 
+                ref={searchInputRef}
+                placeholder="ESCANEAR CÓDIGO O BUSCAR..." 
+                autoFocus
+                className="pl-12 h-14 text-xl font-black bg-white/5 border-none text-white focus-visible:ring-1 focus-visible:ring-primary rounded-xl placeholder:text-white/10 uppercase italic"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
           </div>
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 w-5 h-5" />
-            <Input 
-              ref={searchInputRef}
-              placeholder="ESCANEAR CÓDIGO O BUSCAR..." 
-              autoFocus
-              className="pl-12 h-14 text-xl font-black bg-white/5 border-none text-white focus-visible:ring-1 focus-visible:ring-primary rounded-xl placeholder:text-white/10 uppercase italic"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-          </div>
+          <Button 
+            onClick={() => setIsScannerOpen(true)}
+            className="bg-primary hover:bg-white text-black font-black uppercase italic tracking-tighter h-14 px-6 rounded-xl flex items-center gap-2 w-full md:w-auto"
+          >
+            <Camera className="w-5 h-5" />
+            Cámara
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
           {loadingProducts ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
               <Loader2 className="w-10 h-10 animate-spin text-primary" />
-              <p className="font-black uppercase italic tracking-tight text-xs">Cargando Catálogo...</p>
+              <p className="font-black uppercase italic tracking-tight text-xs">Sincronizando Inventario...</p>
             </div>
           ) : (
             <>
               {products?.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-6 text-center">
                   <Package className="w-20 h-20 text-black/5" />
-                  <p className="text-xl font-black uppercase italic text-black/20">Sin Productos</p>
-                  <Button onClick={seedTestData} disabled={isSeeding} className="bg-black text-primary font-black">
+                  <p className="text-xl font-black uppercase italic text-black/20">Inventario Vacío</p>
+                  <Button onClick={seedTestData} disabled={isSeeding} className="bg-black text-primary font-black h-12 rounded-xl">
                     {isSeeding ? <Loader2 className="animate-spin mr-2" /> : <PlusCircle className="mr-2" />}
-                    CARGAR DEMO
+                    POBLAR CATÁLOGO
                   </Button>
                 </div>
               ) : (
@@ -273,7 +292,6 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* PANEL DERECHO: CARRITO INDUSTRIAL */}
       <div className="w-full lg:w-[450px] bg-white border-l-4 border-black flex flex-col shadow-2xl relative z-20">
         <POSCart 
           items={cart} 
@@ -288,7 +306,7 @@ export default function POSPage() {
             disabled={cart.length === 0}
             onClick={() => setIsPaymentOpen(true)}
           >
-            <span className="text-[10px] uppercase tracking-[0.3em] font-black opacity-50">Confirmar Venta</span>
+            <span className="text-[10px] uppercase tracking-[0.3em] font-black opacity-50">Cerrar Transacción</span>
             <span className="italic uppercase font-black">Pagar ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
           </Button>
         </div>
@@ -300,6 +318,12 @@ export default function POSPage() {
         total={total}
         cartItems={cart}
         onConfirm={handleFinishSale}
+      />
+
+      <BarcodeScanner 
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleCameraScan}
       />
     </div>
   )

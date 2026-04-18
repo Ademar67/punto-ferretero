@@ -29,8 +29,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, Save, PackagePlus } from "lucide-react"
 
 const productSchema = z.object({
-  name: z.string().min(2, "El nombre es obligatorio"),
-  code: z.string().min(2, "El código es obligatorio"),
+  name: z.string().min(2, "Nombre requerido"),
+  code: z.string().min(2, "Código requerido").regex(/^[a-zA-Z0-9-]+$/, "Solo letras, números y guiones"),
   brand: z.string().default("Genérico"),
   categoryId: z.string().default("general"),
   costPrice: z.coerce.number().min(0),
@@ -44,9 +44,9 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>
 
 interface AddProductDialogProps {
-  isOpen: boolean
-  onClose: () => void
-  productToEdit?: Product
+  isOpen: boolean;
+  onClose: () => void;
+  productToEdit?: Product;
 }
 
 export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductDialogProps) {
@@ -106,25 +106,24 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
     setIsSubmitting(true)
 
     try {
-      // Lógica de Upsert: Buscar por código si estamos creando nuevo
-      let docId = productToEdit?.id
-
-      if (!docId) {
+      // Si no estamos editando, verificar si el código ya existe para este negocio
+      if (!productToEdit) {
         const q = query(
           collection(db, "negocios", user.uid, "productos"),
-          where("code", "==", values.code),
+          where("code", "==", values.code.trim()),
           limit(1)
         )
         const snapshot = await getDocs(q)
         if (!snapshot.empty) {
-          docId = snapshot.docs[0].id
-        } else {
-          // Si no existe, usamos una versión limpia del código como ID o dejamos que Firebase genere uno
-          docId = values.code.replace(/\s+/g, '-').toLowerCase() + '-' + Date.now().toString().slice(-4)
+          form.setError("code", { message: "Este código ya existe en tu catálogo" })
+          setIsSubmitting(false)
+          return
         }
       }
 
+      const docId = productToEdit?.id || values.code.trim().toLowerCase().replace(/\s+/g, '-')
       const productRef = doc(db, "negocios", user.uid, "productos", docId)
+      
       const finalData = {
         ...values,
         id: docId,
@@ -137,32 +136,20 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
       await setDoc(productRef, finalData, { merge: true })
 
       toast({
-        title: productToEdit ? "PRODUCTO ACTUALIZADO" : "PRODUCTO GUARDADO",
-        description: `${values.name} ya está disponible en el catálogo.`,
+        title: productToEdit ? "SINCRONIZADO" : "REGISTRADO",
+        description: `${values.name} guardado correctamente.`,
         className: "bg-black text-primary border-primary border-2 font-black",
       })
 
       if (!productToEdit) {
-        form.reset({
-          name: "",
-          code: "",
-          brand: "Genérico",
-          categoryId: "general",
-          costPrice: 0,
-          salePrice: 0,
-          stock: 0,
-          minStock: 2,
-          unit: "pza",
-          active: true,
-        })
+        form.reset()
       } else {
         onClose()
       }
     } catch (error) {
-      console.error(error)
       toast({
-        title: "ERROR",
-        description: "No se pudo guardar el producto.",
+        title: "ERROR DE ESCRITURA",
+        description: "No se pudo sincronizar con Firestore.",
         variant: "destructive",
       })
     } finally {
@@ -182,7 +169,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter">
                 {productToEdit ? "Editar" : "Nuevo"} <span className="text-primary">Producto</span>
               </DialogTitle>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Terminal de Inventario</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Base de Datos de Inventario</p>
             </div>
           </div>
         </DialogHeader>
@@ -195,9 +182,9 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Código / SKU</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Código de Barras / SKU</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="P-101" className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold uppercase" />
+                      <Input {...field} disabled={!!productToEdit} placeholder="EAN-13, Interno..." className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold uppercase" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -208,9 +195,9 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Nombre del Producto</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Descripción Comercial</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Martillo de Uña..." className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
+                      <Input {...field} placeholder="Ej. Martillo 16oz" className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -221,7 +208,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="brand"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Marca</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Marca / Proveedor</FormLabel>
                     <FormControl>
                       <Input {...field} className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
                     </FormControl>
@@ -234,7 +221,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="unit"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Unidad de Medida</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Unidad</FormLabel>
                     <FormControl>
                       <Input {...field} placeholder="pza, kg, m..." className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
                     </FormControl>
@@ -247,7 +234,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="costPrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Costo de Compra</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Costo</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
                     </FormControl>
@@ -260,7 +247,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="salePrice"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Precio de Venta</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Precio Público</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} className="h-12 border-4 border-primary/20 focus-visible:ring-primary rounded-xl font-black text-lg bg-primary/5" />
                     </FormControl>
@@ -273,7 +260,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="stock"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Stock Actual</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Inventario Actual</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
                     </FormControl>
@@ -286,7 +273,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 name="minStock"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Stock Mínimo (Alerta)</FormLabel>
+                    <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Mínimo Crítico</FormLabel>
                     <FormControl>
                       <Input type="number" {...field} className="h-12 border-4 border-muted focus-visible:ring-primary rounded-xl font-bold" />
                     </FormControl>
@@ -308,7 +295,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
                 {isSubmitting ? <Loader2 className="animate-spin" /> : (
                   <>
                     <Save className="w-5 h-5 mr-2" />
-                    {productToEdit ? "ACTUALIZAR" : "GUARDAR PRODUCTO"}
+                    {productToEdit ? "ACTUALIZAR" : "GUARDAR EN NUBE"}
                   </>
                 )}
               </Button>
