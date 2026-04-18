@@ -1,3 +1,5 @@
+"use client"
+
 import { 
   TrendingUp, 
   ShoppingCart, 
@@ -6,15 +8,20 @@ import {
   AlertTriangle,
   ArrowRight,
   Plus,
-  Hammer
+  Hammer,
+  Loader2,
+  Lock
 } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { useUser } from "@/firebase"
 
 export default function DashboardPage() {
+  const { user, isUserLoading } = useUser()
+
   const stats = [
     { label: "Ventas Hoy", value: "$12,450.00", icon: TrendingUp, color: "text-green-600", trend: "+12% vs ayer" },
     { label: "Tickets Hoy", value: "24", icon: Receipt, color: "text-primary", trend: "+5 vs ayer" },
@@ -34,6 +41,32 @@ export default function DashboardPage() {
     { id: "3", name: "Tornillo 2'' (Caja 100)", stock: 4, minStock: 10 },
   ]
 
+  if (isUserLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] gap-4">
+        <Loader2 className="w-12 h-12 animate-spin text-primary" />
+        <p className="font-black uppercase italic tracking-tighter">Cargando Panel...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F5F5F5] p-6 gap-6 text-center">
+        <div className="w-20 h-20 bg-black rounded-3xl flex items-center justify-center shadow-xl rotate-3 border-4 border-primary">
+          <Lock className="w-10 h-10 text-primary -rotate-3" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-black uppercase italic tracking-tighter">Acceso Restringido</h1>
+          <p className="text-muted-foreground font-bold uppercase text-xs">Debes iniciar sesión para acceder al panel de control.</p>
+        </div>
+        <Button asChild size="lg" className="bg-primary text-black font-black px-10 h-14 rounded-xl shadow-lg shadow-primary/20">
+          <Link href="/login">IR AL LOGIN</Link>
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-8 p-6 lg:p-10 bg-[#f4f4f5] min-h-full text-black">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -45,7 +78,7 @@ export default function DashboardPage() {
             <h1 className="text-4xl font-black tracking-tighter text-black uppercase italic leading-none">
               Punto <span className="text-primary">Ferretero</span>
             </h1>
-            <p className="text-muted-foreground mt-1 font-bold uppercase text-[10px] tracking-widest">Panel de Control / Tu negocio bajo control</p>
+            <p className="text-muted-foreground mt-1 font-bold uppercase text-[10px] tracking-widest">Panel de Control • Tu negocio bajo control</p>
           </div>
         </div>
         <div className="flex gap-3">
