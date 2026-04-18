@@ -29,13 +29,13 @@ interface ImportProductsDialogProps {
 }
 
 interface RawProduct {
-  code: string
-  name: string
-  brand: string
-  salePrice: number
-  costPrice: number
-  stock: number
-  unit: string
+  codigo: string
+  nombre: string
+  marca: string
+  precioVenta: number
+  precioCompra: number
+  stockActual: number
+  unidad: string
 }
 
 export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogProps) {
@@ -58,15 +58,15 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
       const parsed: RawProduct[] = lines.slice(1).filter(line => line.trim()).map(line => {
         const values = line.split(',')
         return {
-          code: values[0]?.trim() || "",
-          name: values[1]?.trim() || "",
-          brand: values[2]?.trim() || "Genérico",
-          salePrice: parseFloat(values[3]) || 0,
-          costPrice: parseFloat(values[4]) || 0,
-          stock: parseFloat(values[5]) || 0,
-          unit: values[6]?.trim() || "pza"
+          codigo: values[0]?.trim() || "",
+          nombre: values[1]?.trim() || "",
+          marca: values[2]?.trim() || "Genérico",
+          precioVenta: parseFloat(values[3]) || 0,
+          precioCompra: parseFloat(values[4]) || 0,
+          stockActual: parseFloat(values[5]) || 0,
+          unidad: values[6]?.trim() || "pza"
         }
-      }).filter(p => p.code && p.name)
+      }).filter(p => p.codigo && p.nombre)
 
       setPreviewData(parsed)
     }
@@ -86,7 +86,7 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
         const chunk = previewData.slice(processed, processed + batchSize)
 
         for (const p of chunk) {
-          const sanitizedCode = p.code.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
+          const sanitizedCode = p.codigo.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()
           const productRef = doc(db, "negocios", user.uid, "productos", sanitizedCode)
           
           batch.set(productRef, {
@@ -94,9 +94,9 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
             id: sanitizedCode,
             ownerId: user.uid,
             ownerEmail: user.email,
-            categoryId: "general",
-            active: true,
-            minStock: 2,
+            categoriaId: "general",
+            activo: true,
+            stockMinimo: 2,
             updatedAt: serverTimestamp(),
             createdAt: serverTimestamp(),
           }, { merge: true })
@@ -190,10 +190,10 @@ export function ImportProductsDialog({ isOpen, onClose }: ImportProductsDialogPr
                   <TableBody>
                     {previewData.slice(0, 50).map((p, i) => (
                       <TableRow key={i}>
-                        <TableCell className="font-bold text-xs">{p.code}</TableCell>
-                        <TableCell className="font-medium text-xs truncate max-w-[200px]">{p.name}</TableCell>
-                        <TableCell className="font-black text-xs">${p.salePrice}</TableCell>
-                        <TableCell className="font-bold text-xs">{p.stock}</TableCell>
+                        <TableCell className="font-bold text-xs">{p.codigo}</TableCell>
+                        <TableCell className="font-medium text-xs truncate max-w-[200px]">{p.nombre}</TableCell>
+                        <TableCell className="font-black text-xs">${p.precioVenta}</TableCell>
+                        <TableCell className="font-bold text-xs">{p.stockActual}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

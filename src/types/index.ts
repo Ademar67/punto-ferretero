@@ -11,17 +11,17 @@ export interface User {
 export interface Product {
   id: string;
   ownerId: string;
-  name: string;
-  code: string;
-  categoryId: string;
-  brand: string;
-  description?: string;
-  costPrice: number;
-  salePrice: number;
-  stock: number;
-  minStock: number;
-  unit: string; // pza, caja, kg, m, etc.
-  active: boolean;
+  nombre: string;
+  codigo: string;
+  categoriaId: string;
+  marca: string;
+  descripcion?: string;
+  precioCompra: number;
+  precioVenta: number;
+  stockActual: number;
+  stockMinimo: number;
+  unidad: string; // pza, caja, kg, m, etc.
+  activo: boolean;
   createdAt: any;
 }
 

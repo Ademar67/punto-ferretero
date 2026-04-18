@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -32,7 +31,7 @@ export default function POSPage() {
     if (!db || !user?.uid) return null
     return query(
       collection(db, "negocios", user.uid, "productos"), 
-      where("active", "==", true), 
+      where("activo", "==", true), 
       limit(200)
     )
   }, [db, user?.uid])
@@ -54,8 +53,8 @@ export default function POSPage() {
   const filteredProducts = useMemo(() => {
     if (!products) return []
     return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.code.toLowerCase().includes(searchTerm.toLowerCase())
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [products, searchTerm])
 
@@ -65,16 +64,16 @@ export default function POSPage() {
       if (existing) {
         return prev.map(item => 
           item.productId === product.id 
-            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
+            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.precioVenta }
             : item
         )
       }
       return [...prev, { 
         productId: product.id, 
-        name: product.name, 
-        price: product.salePrice, 
+        name: product.nombre, 
+        price: product.precioVenta, 
         quantity: 1, 
-        subtotal: product.salePrice,
+        subtotal: product.precioVenta,
         discount: 0 
       }]
     })
@@ -83,7 +82,6 @@ export default function POSPage() {
     setTimeout(() => searchInputRef.current?.focus(), 10)
   }
 
-  // --- VALIDACIÓN DE ESCANEO POR TECLADO / PISTOLA ---
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && searchTerm.trim()) {
       e.preventDefault()
@@ -93,14 +91,14 @@ export default function POSPage() {
       
       console.log(`[Pistola] Código leído: "${rawCode}" -> Normalizado: "${normalizedCode}"`)
       
-      const exactMatch = products?.find(p => p.code.toUpperCase() === normalizedCode)
+      const exactMatch = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
       
       if (exactMatch) {
         addToCart(exactMatch)
         setSearchTerm("")
         toast({
           title: "PRODUCTO IDENTIFICADO",
-          description: exactMatch.name,
+          description: exactMatch.nombre,
           className: "bg-black text-primary border-primary border-2 font-black",
         })
       } else {
@@ -116,21 +114,20 @@ export default function POSPage() {
     }
   }
 
-  // --- VALIDACIÓN DE ESCANEO POR CÁMARA ---
   const handleCameraScan = (code: string) => {
     const rawCode = code.trim()
     const normalizedCode = rawCode.toUpperCase()
     
     console.log(`[Cámara] Código detectado: "${rawCode}" -> Normalizado: "${normalizedCode}"`)
     
-    const product = products?.find(p => p.code.toUpperCase() === normalizedCode)
+    const product = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
     
     if (product) {
       addToCart(product)
       setIsScannerOpen(false)
       toast({
         title: "ESCANEADO EXITOSO",
-        description: product.name,
+        description: product.nombre,
         className: "bg-black text-primary border-primary border-2 font-black",
       })
     } else {
@@ -193,9 +190,9 @@ export default function POSPage() {
     if (!db || !user?.uid) return
     setIsSeeding(true)
     const testProducts = [
-      { name: "Martillo de Uña 16oz", code: "M-101", brand: "Truper", salePrice: 180, costPrice: 110, stock: 10, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
-      { name: "Destornillador Phillips", code: "D-202", brand: "Stanley", salePrice: 45, costPrice: 25, stock: 20, minStock: 5, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
-      { name: "Pintura Blanca 4L", code: "PV-505", brand: "Comex", salePrice: 450, costPrice: 280, stock: 12, minStock: 4, unit: "pza", categoryId: "pintura", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
+      { nombre: "Martillo de Uña 16oz", codigo: "M-101", marca: "Truper", precioVenta: 180, precioCompra: 110, stockActual: 10, stockMinimo: 2, unidad: "pza", categoriaId: "herramientas", activo: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { nombre: "Destornillador Phillips", codigo: "D-202", marca: "Stanley", precioVenta: 45, precioCompra: 25, stockActual: 20, stockMinimo: 5, unidad: "pza", categoriaId: "herramientas", activo: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { nombre: "Pintura Blanca 4L", codigo: "PV-505", marca: "Comex", precioVenta: 450, precioCompra: 280, stockActual: 12, stockMinimo: 4, unidad: "pza", categoriaId: "pintura", activo: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
     ]
     try {
       for (const p of testProducts) {
@@ -282,18 +279,18 @@ export default function POSPage() {
                       onClick={() => addToCart(product)}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-[8px] font-black text-white bg-black px-1.5 py-0.5 rounded tracking-widest">{product.code}</span>
+                        <span className="text-[8px] font-black text-white bg-black px-1.5 py-0.5 rounded tracking-widest">{product.codigo}</span>
                         <span className={cn(
                           "text-[9px] font-bold px-2 rounded-full",
-                          product.stock <= product.minStock ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                          product.stockActual <= product.stockMinimo ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
                         )}>
-                          Stock: {product.stock}
+                          Stock: {product.stockActual}
                         </span>
                       </div>
-                      <h3 className="font-black text-xs text-black uppercase truncate mb-1">{product.name}</h3>
-                      <p className="text-[9px] text-muted-foreground font-bold uppercase italic">{product.brand}</p>
+                      <h3 className="font-black text-xs text-black uppercase truncate mb-1">{product.nombre}</h3>
+                      <p className="text-[9px] text-muted-foreground font-bold uppercase italic">{product.marca}</p>
                       <div className="mt-4 pt-3 border-t border-dashed border-muted flex items-end justify-between">
-                        <span className="text-2xl font-black text-black tracking-tighter font-mono">${product.salePrice.toFixed(2)}</span>
+                        <span className="text-2xl font-black text-black tracking-tighter font-mono">${product.precioVenta.toFixed(2)}</span>
                         <div className="w-6 h-6 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary transition-colors">
                           <PlusCircle className="w-4 h-4 text-black" />
                         </div>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useMemo } from "react"
@@ -43,7 +42,7 @@ export default function ProductosPage() {
     if (!db || !user?.uid) return null
     return query(
       collection(db, "negocios", user.uid, "productos"),
-      orderBy("name", "asc")
+      orderBy("nombre", "asc")
     )
   }, [db, user?.uid])
 
@@ -52,9 +51,9 @@ export default function ProductosPage() {
   const filteredProducts = useMemo(() => {
     if (!products) return []
     return products.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.brand.toLowerCase().includes(searchTerm.toLowerCase())
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.marca.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [products, searchTerm])
 
@@ -161,26 +160,26 @@ export default function ProductosPage() {
               <TableRow key={product.id} className="hover:bg-primary/5 border-border/50">
                 <TableCell className="font-black text-black italic">
                   <Badge variant="outline" className="border-black/10 font-black px-2 py-0.5 rounded text-[10px]">
-                    {product.code}
+                    {product.codigo}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col">
-                    <span className="font-black text-black uppercase text-sm">{product.name}</span>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Unidad: {product.unit}</span>
+                    <span className="font-black text-black uppercase text-sm">{product.nombre}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">Unidad: {product.unidad}</span>
                   </div>
                 </TableCell>
-                <TableCell className="font-bold text-muted-foreground uppercase text-xs">{product.brand}</TableCell>
-                <TableCell className="font-black text-lg text-black">${product.salePrice.toFixed(2)}</TableCell>
+                <TableCell className="font-bold text-muted-foreground uppercase text-xs">{product.marca}</TableCell>
+                <TableCell className="font-black text-lg text-black">${product.precioVenta.toFixed(2)}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <span className={cn(
                       "font-black text-lg",
-                      product.stock <= product.minStock ? "text-red-600" : "text-black"
+                      product.stockActual <= product.stockMinimo ? "text-red-600" : "text-black"
                     )}>
-                      {product.stock}
+                      {product.stockActual}
                     </span>
-                    {product.stock <= product.minStock && (
+                    {product.stockActual <= product.stockMinimo && (
                       <AlertCircle className="w-4 h-4 text-red-600 animate-pulse" />
                     )}
                   </div>
@@ -189,10 +188,10 @@ export default function ProductosPage() {
                   <Badge 
                     className={cn(
                       "font-black text-[9px] uppercase px-3",
-                      product.active ? "bg-green-500" : "bg-muted text-muted-foreground"
+                      product.activo ? "bg-green-500" : "bg-muted text-muted-foreground"
                     )}
                   >
-                    {product.active ? "Activo" : "Inactivo"}
+                    {product.activo ? "Activo" : "Inactivo"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">

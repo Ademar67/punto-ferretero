@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -29,16 +28,16 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, Save, PackagePlus } from "lucide-react"
 
 const productSchema = z.object({
-  name: z.string().min(2, "Nombre requerido"),
-  code: z.string().min(2, "Código requerido").regex(/^[a-zA-Z0-9-]+$/, "Solo letras, números y guiones"),
-  brand: z.string().default("Genérico"),
-  categoryId: z.string().default("general"),
-  costPrice: z.coerce.number().min(0),
-  salePrice: z.coerce.number().min(0),
-  stock: z.coerce.number().min(0),
-  minStock: z.coerce.number().min(0),
-  unit: z.string().default("pza"),
-  active: z.boolean().default(true),
+  nombre: z.string().min(2, "Nombre requerido"),
+  codigo: z.string().min(2, "Código requerido").regex(/^[a-zA-Z0-9-]+$/, "Solo letras, números y guiones"),
+  marca: z.string().default("Genérico"),
+  categoriaId: z.string().default("general"),
+  precioCompra: z.coerce.number().min(0),
+  precioVenta: z.coerce.number().min(0),
+  stockActual: z.coerce.number().min(0),
+  stockMinimo: z.coerce.number().min(0),
+  unidad: z.string().default("pza"),
+  activo: z.boolean().default(true),
 })
 
 type ProductFormValues = z.infer<typeof productSchema>
@@ -58,45 +57,45 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: "",
-      code: "",
-      brand: "Genérico",
-      categoryId: "general",
-      costPrice: 0,
-      salePrice: 0,
-      stock: 0,
-      minStock: 2,
-      unit: "pza",
-      active: true,
+      nombre: "",
+      codigo: "",
+      marca: "Genérico",
+      categoriaId: "general",
+      precioCompra: 0,
+      precioVenta: 0,
+      stockActual: 0,
+      stockMinimo: 2,
+      unidad: "pza",
+      activo: true,
     },
   })
 
   useEffect(() => {
     if (productToEdit) {
       form.reset({
-        name: productToEdit.name,
-        code: productToEdit.code,
-        brand: productToEdit.brand,
-        categoryId: productToEdit.categoryId,
-        costPrice: productToEdit.costPrice,
-        salePrice: productToEdit.salePrice,
-        stock: productToEdit.stock,
-        minStock: productToEdit.minStock,
-        unit: productToEdit.unit,
-        active: productToEdit.active,
+        nombre: productToEdit.nombre,
+        codigo: productToEdit.codigo,
+        marca: productToEdit.marca,
+        categoriaId: productToEdit.categoriaId,
+        precioCompra: productToEdit.precioCompra,
+        precioVenta: productToEdit.precioVenta,
+        stockActual: productToEdit.stockActual,
+        stockMinimo: productToEdit.stockMinimo,
+        unidad: productToEdit.unidad,
+        activo: productToEdit.activo,
       })
     } else {
       form.reset({
-        name: "",
-        code: "",
-        brand: "Genérico",
-        categoryId: "general",
-        costPrice: 0,
-        salePrice: 0,
-        stock: 0,
-        minStock: 2,
-        unit: "pza",
-        active: true,
+        nombre: "",
+        codigo: "",
+        marca: "Genérico",
+        categoriaId: "general",
+        precioCompra: 0,
+        precioVenta: 0,
+        stockActual: 0,
+        stockMinimo: 2,
+        unidad: "pza",
+        activo: true,
       })
     }
   }, [productToEdit, form, isOpen])
@@ -110,18 +109,18 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
       if (!productToEdit) {
         const q = query(
           collection(db, "negocios", user.uid, "productos"),
-          where("code", "==", values.code.trim()),
+          where("codigo", "==", values.codigo.trim()),
           limit(1)
         )
         const snapshot = await getDocs(q)
         if (!snapshot.empty) {
-          form.setError("code", { message: "Este código ya existe en tu catálogo" })
+          form.setError("codigo", { message: "Este código ya existe en tu catálogo" })
           setIsSubmitting(false)
           return
         }
       }
 
-      const docId = productToEdit?.id || values.code.trim().toLowerCase().replace(/\s+/g, '-')
+      const docId = productToEdit?.id || values.codigo.trim().toLowerCase().replace(/\s+/g, '-')
       const productRef = doc(db, "negocios", user.uid, "productos", docId)
       
       const finalData = {
@@ -137,7 +136,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
 
       toast({
         title: productToEdit ? "SINCRONIZADO" : "REGISTRADO",
-        description: `${values.name} guardado correctamente.`,
+        description: `${values.nombre} guardado correctamente.`,
         className: "bg-black text-primary border-primary border-2 font-black",
       })
 
@@ -179,7 +178,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
-                name="code"
+                name="codigo"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Código de Barras / SKU</FormLabel>
@@ -192,7 +191,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
               <FormField
                 control={form.control}
-                name="name"
+                name="nombre"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Descripción Comercial</FormLabel>
@@ -205,7 +204,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
               <FormField
                 control={form.control}
-                name="brand"
+                name="marca"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Marca / Proveedor</FormLabel>
@@ -218,7 +217,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
                <FormField
                 control={form.control}
-                name="unit"
+                name="unidad"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Unidad</FormLabel>
@@ -231,7 +230,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
               <FormField
                 control={form.control}
-                name="costPrice"
+                name="precioCompra"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Costo</FormLabel>
@@ -244,7 +243,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
               <FormField
                 control={form.control}
-                name="salePrice"
+                name="precioVenta"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Precio Público</FormLabel>
@@ -257,7 +256,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
               <FormField
                 control={form.control}
-                name="stock"
+                name="stockActual"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Inventario Actual</FormLabel>
@@ -270,7 +269,7 @@ export function AddProductDialog({ isOpen, onClose, productToEdit }: AddProductD
               />
               <FormField
                 control={form.control}
-                name="minStock"
+                name="stockMinimo"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-black uppercase text-[10px] tracking-widest text-black/40 italic">Mínimo Crítico</FormLabel>
