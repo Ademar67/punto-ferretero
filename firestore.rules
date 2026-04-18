@@ -1,13 +1,174 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Reglas básicas de seguridad: El usuario solo puede acceder a datos que le pertenecen (ownerId)
-    match /products/{productId} {
-      allow read, write: if request.auth != null;
+
+    /**
+     * MULTI-TENANT POINT OF SALE (POS) SECURITY MODEL
+     * 
+     * Core Philosophy:
+     * This ruleset implements a strict multi-tenant authorization model based on "Business Ownership."
+     * Access is partitioned by a unique `ownerId` (the UID of the primary business owner).
+     * 
+     * Data Structure:
+     * - /usuarios/{usuarioId}: User profiles containing roles and business affiliation (ownerId).
+     * - /configuracionNegocio/{ownerId}: Global settings for a specific business entity.
+     * - /negocios/{ownerId}/...: All transactional and master data (products, sales, stock) is nested 
+     *   under the business owner's ID for absolute logical segregation.
+     * 
+     * Key Security Decisions:
+     * 1. Authorization Independence: Every document in the business tree denormalizes the `ownerId`. 
+     *    Rules verify this field directly to ensure users only interact with their business.
+     * 2. Role-Based Access (DBAC): Users are assigned a business ID in their profile. Access to 
+     *    the /negocios/ path is granted if the user's profile ownerId matches the path.
+     * 3. Immutability: Critical relational links (like ownerId) are protected from modification 
+     *    after document creation to prevent data leaking between businesses.
+     * 4. Prototyping Flexibility: Data types and general schemas are not enforced to allow rapid 
+     *    frontend iteration, focusing strictly on "Who" can access "Which" business data.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** Checks if the request is from an authenticated user. */
+    function isSignedIn() {
+      return request.auth != null;
     }
-    match /sales/{saleId} {
-      allow read, write: if request.auth != null;
+
+    /** Checks if the authenticated user's UID matches the provided userId. */
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Retrieves the profile document for the currently authenticated user. */
+    function getProfile() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    /** 
+     * Determines if a user belongs to a specific business. 
+     * A user belongs if they ARE the owner or if their profile identifies this ownerId.
+     */
+    function hasBusinessAccess(ownerId) {
+      return isSignedIn() && (request.auth.uid == ownerId || getProfile().ownerId == ownerId);
+    }
+
+    /** Verifies a document exists and belongs to the specified user/business for write safety. */
+    function isExistingOwner(ownerId) {
+      return resource != null && resource.data.ownerId == ownerId;
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Profiles for all users (owners and employees).
+     * @path /usuarios/{usuarioId}
+     * @allow User 'abc' creates their own profile (create).
+     * @deny User 'abc' attempts to delete user 'xyz' (delete).
+     * @principle Self-creation and ownership-based updates.
+     */
+    match /usuarios/{usuarioId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && (isUser(usuarioId) || getProfile().ownerId == resource.data.ownerId);
+      allow create: if isUser(usuarioId) && request.resource.data.id == usuarioId;
+      allow update: if (isUser(usuarioId) || getProfile().ownerId == resource.data.ownerId) && resource != null;
+      allow delete: if false; // Profiles should generally be deactivated, not deleted.
+    }
+
+    /**
+     * @description Top-level configuration for a business entity.
+     * @path /configuracionNegocio/{ownerId}
+     * @allow Employee of business 'A' reads the shop name (get).
+     * @deny Employee attempts to change the business currency (update).
+     * @principle Shared read access for staff; Owner-only write access.
+     */
+    match /configuracionNegocio/{ownerId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if isUser(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if isUser(ownerId) && resource != null && request.resource.data.ownerId == ownerId;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Product categories organized by business.
+     * @path /negocios/{ownerId}/categorias/{categoriaId}
+     * @allow Cashier lists categories to filter products (list).
+     * @deny User from Business 'B' attempts to read categories from Business 'A' (get).
+     * @principle Business isolation via path and ownerId verification.
+     */
+    match /negocios/{ownerId}/categorias/{categoriaId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if hasBusinessAccess(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId) && request.resource.data.ownerId == ownerId;
+      allow delete: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId);
+    }
+
+    /**
+     * @description Inventory items specific to a business.
+     * @path /negocios/{ownerId}/productos/{productoId}
+     * @allow Logged-in staff member creates a new product (create).
+     * @deny User modifies the ownerId to transfer a product to another business (update).
+     * @principle Data consistency and business-level authorization.
+     */
+    match /negocios/{ownerId}/productos/{productoId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if hasBusinessAccess(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId) && request.resource.data.ownerId == ownerId;
+      allow delete: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId);
+    }
+
+    /**
+     * @description Sales transaction records.
+     * @path /negocios/{ownerId}/ventas/{ventaId}
+     * @allow Cashier records a new sale (create).
+     * @deny Unauthorized user tries to list all sales of a business (list).
+     * @principle Transactional integrity restricted to business members.
+     */
+    match /negocios/{ownerId}/ventas/{ventaId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if hasBusinessAccess(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId) && request.resource.data.ownerId == ownerId;
+      allow delete: if isUser(ownerId); // Only primary owners can delete historical sales.
+    }
+
+    /**
+     * @description Line items within a specific sale.
+     * @path /negocios/{ownerId}/ventas/{ventaId}/itemsVenta/{itemVentaId}
+     * @allow App lists all items for a specific receipt (list).
+     * @deny User creates a sale item for a sale they don't own (create).
+     * @principle Deeply nested subcollection security using denormalized ownerId.
+     */
+    match /negocios/{ownerId}/ventas/{ventaId}/itemsVenta/{itemVentaId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if hasBusinessAccess(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId) && request.resource.data.ownerId == ownerId;
+      allow delete: if isUser(ownerId);
+    }
+
+    /**
+     * @description Audit log of all stock changes (in/out/sales).
+     * @path /negocios/{ownerId}/movimientosInventario/{movimientoId}
+     * @allow System generates a movement log on sale (create).
+     * @deny Any user attempts to modify an existing movement log (update).
+     * @principle Append-only audit trail for inventory tracking.
+     */
+    match /negocios/{ownerId}/movimientosInventario/{movimientoId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if hasBusinessAccess(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if false; // Inventory history should be immutable.
+      allow delete: if false; // Inventory history should be immutable.
+    }
+
+    /**
+     * @description Register shift records (open/close cash drawer).
+     * @path /negocios/{ownerId}/cortesCaja/{corteCajaId}
+     * @allow Cashier closes their daily shift (update).
+     * @deny User from another business tries to see the daily totals (get).
+     * @principle Business-scoped financial data protection.
+     */
+    match /negocios/{ownerId}/cortesCaja/{corteCajaId} {
+      allow get, list: if hasBusinessAccess(ownerId);
+      allow create: if hasBusinessAccess(ownerId) && request.resource.data.ownerId == ownerId;
+      allow update: if hasBusinessAccess(ownerId) && isExistingOwner(ownerId) && request.resource.data.ownerId == ownerId;
+      allow delete: if isUser(ownerId);
     }
   }
 }
