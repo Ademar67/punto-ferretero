@@ -31,7 +31,7 @@ import {
 
 const menuItems = [
   { name: "Resumen", icon: LayoutDashboard, href: "/dashboard" },
-  { name: "Nueva Venta", icon: ShoppingCart, href: "/pos", highlight: true },
+  { name: "Nueva Venta", icon: ShoppingCart, href: "/pos" },
   { name: "Productos", icon: Package, href: "/productos" },
   { name: "Inventario", icon: ClipboardList, href: "/inventario" },
   { name: "Categorías", icon: Tags, href: "/categorias" },
@@ -78,14 +78,13 @@ export function SidebarNav() {
                     tooltip={item.name}
                     className={cn(
                       "h-12 px-4 transition-all duration-200 rounded-xl",
-                      item.highlight 
-                        ? "bg-primary text-black hover:bg-primary/90 font-black mb-2 shadow-lg shadow-primary/20 scale-105" 
-                        : "text-white/90 hover:text-white hover:bg-white/10",
-                      pathname === item.href && !item.highlight && "bg-primary text-black font-black"
+                      pathname === item.href 
+                        ? "bg-primary text-black font-black" 
+                        : "text-white/90 hover:text-white hover:bg-white/10"
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className={cn("w-5 h-5", (pathname === item.href || item.highlight) ? "text-black" : "text-primary")} />
+                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-black" : "text-primary")} />
                       <span className="group-data-[collapsible=icon]:hidden uppercase text-xs tracking-tight font-bold">{item.name}</span>
                     </Link>
                   </SidebarMenuButton>
