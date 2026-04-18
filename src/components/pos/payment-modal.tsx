@@ -119,6 +119,15 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     }
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && method === 'efectivo') {
+      const paid = parseFloat(amountPaid) || 0
+      if (paid >= total && !isProcessing) {
+        handleConfirm()
+      }
+    }
+  }
+
   const quickAmounts = useMemo(() => {
     const suggestions = [
       total,
@@ -208,6 +217,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                       disabled={isProcessing}
                       value={amountPaid}
                       onChange={(e) => setAmountPaid(e.target.value)}
+                      onKeyDown={handleKeyDown}
                       className={cn(
                         "text-6xl h-28 font-black tracking-tighter rounded-[2rem] border-4 focus-visible:ring-offset-4 pl-14 bg-white shadow-[0_20px_40px_rgba(0,0,0,0.1)] transition-all",
                         isInsufficientAmount 
