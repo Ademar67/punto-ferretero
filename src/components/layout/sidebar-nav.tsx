@@ -44,11 +44,12 @@ const menuItems = [
 
 export function SidebarNav() {
   const pathname = usePathname()
-  const [mounted, setMounted] = useState(false)
+  const [activePath, setActivePath] = useState<string | null>(null)
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    // Sincronizamos la ruta activa solo después del montaje para evitar errores de hidratación
+    setActivePath(pathname)
+  }, [pathname])
 
   return (
     <Sidebar collapsible="icon" className="bg-black text-white border-r-0">
@@ -77,8 +78,7 @@ export function SidebarNav() {
           <SidebarGroupContent>
             <SidebarMenu className="px-3 gap-2">
               {menuItems.map((item) => {
-                // Evitamos errores de hidratación desactivando el estado activo hasta que el cliente se monte
-                const isActive = mounted ? pathname === item.href : false
+                const isActive = activePath === item.href
                 
                 return (
                   <SidebarMenuItem key={item.href}>
