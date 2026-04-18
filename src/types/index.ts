@@ -74,13 +74,14 @@ export interface Sale {
   createdAt: any;
 }
 
-export type QuotationStatus = 'pendiente' | 'convertida' | 'cancelada';
+export type QuotationStatus = 'pendiente' | 'convertida' | 'vencida';
 
 export interface Quotation {
   id: string;
   ownerId: string;
   folio: string;
   date: any;
+  validUntil: any; // Fecha de vencimiento
   items: SaleItem[];
   subtotal: number;
   discount: number;

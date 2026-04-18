@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useState } from "react"
-import { Search, Plus, FileText, Eye, Trash2, ShoppingCart, Loader2, ArrowRight, Printer, WhatsApp } from "lucide-react"
+import { useState, useMemo } from "react"
+import { Search, Plus, FileText, Eye, Trash2, ShoppingCart, Loader2, ArrowRight, Printer, WhatsApp, Calendar, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,14 +15,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { query, collection, orderBy, doc, deleteDoc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
 import { Quotation, Sale } from "@/types"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { format } from "date-fns"
+import { format, isAfter } from "date-fns"
 import { es } from "date-fns/locale"
 import { QuotationView } from "@/components/cotizaciones/quotation-view"
 
@@ -44,10 +43,22 @@ export default function CotizacionesPage() {
 
   const { data: quotations, isLoading } = useCollection<Quotation>(quotesQuery)
 
-  const filteredQuotes = quotations?.filter(q => 
-    q.folio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  const filteredQuotes = useMemo(() => {
+    if (!quotations) return []
+    return quotations.filter(q => 
+      q.folio?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      q.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
+    ).map(q => {
+      // Lógica dinámica para marcar como vencida si aplica
+      if (q.status === 'pendiente' && q.validUntil?.seconds) {
+        const expiryDate = new Date(q.validUntil.seconds * 1000)
+        if (isAfter(new Date(), expiryDate)) {
+          return { ...q, status: 'vencida' as const }
+        }
+      }
+      return q
+    })
+  }, [quotations, searchTerm])
 
   const handleDelete = async (id: string) => {
     if (!db || !user?.uid || !confirm("¿Eliminar esta cotización?")) return
@@ -61,6 +72,16 @@ export default function CotizacionesPage() {
 
   const handleConvertToSale = async (quotation: Quotation) => {
     if (!db || !user?.uid || isProcessing) return
+    
+    if (quotation.status === 'vencida') {
+      toast({ 
+        title: "COTIZACIÓN VENCIDA", 
+        description: "No se puede convertir una cotización que ya expiró.",
+        variant: "destructive" 
+      })
+      return
+    }
+
     if (!confirm(`¿Convertir cotización ${quotation.folio} a venta real? Se descontará inventario.`)) return
 
     setIsProcessing(true)
@@ -81,7 +102,7 @@ export default function CotizacionesPage() {
         total: quotation.total,
         subtotal: quotation.subtotal,
         discount: quotation.discount,
-        paymentMethod: 'efectivo', // Por defecto para conversión rápida
+        paymentMethod: 'efectivo',
         amountPaid: quotation.total,
         change: 0,
         status: 'completada',
@@ -117,7 +138,7 @@ export default function CotizacionesPage() {
   }
 
   const shareWhatsApp = (quote: Quotation) => {
-    const text = `Hola! Te envío la cotización ${quote.folio} de Punto Ferretero por un total de $${quote.total.toFixed(2)}. Quedamos a tus órdenes.`
+    const text = `Hola! Te envío la cotización ${quote.folio} de Punto Ferretero por un total de $${quote.total.toFixed(2)}. Tiene vigencia de 7 días. Quedamos a tus órdenes.`
     const url = `https://wa.me/${quote.customerPhone || ""}?text=${encodeURIComponent(text)}`
     window.open(url, "_blank")
   }
@@ -142,7 +163,7 @@ export default function CotizacionesPage() {
             <h1 className="text-4xl font-black tracking-tighter text-black uppercase italic leading-none">
               Módulo de <span className="text-teal-600">Cotizaciones</span>
             </h1>
-            <p className="text-muted-foreground font-medium">Presupuestos y propuestas comerciales sin compromiso.</p>
+            <p className="text-muted-foreground font-medium">Presupuestos con vigencia automática de 7 días.</p>
           </div>
         </div>
         <Button asChild size="lg" className="h-14 bg-teal-600 hover:bg-teal-700 text-white font-black uppercase tracking-tighter rounded-xl shadow-lg">
@@ -171,6 +192,7 @@ export default function CotizacionesPage() {
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Folio</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Fecha</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Cliente</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Vencimiento</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Total</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">Estado</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14 text-right">Acciones</TableHead>
@@ -186,11 +208,19 @@ export default function CotizacionesPage() {
                 <TableCell className="font-bold uppercase text-xs">
                   {quote.customerName || "Venta de Mostrador"}
                 </TableCell>
+                <TableCell className="text-xs font-medium">
+                   {quote.validUntil?.seconds ? (
+                     <span className={cn(quote.status === 'vencida' ? "text-red-500 font-black" : "text-muted-foreground")}>
+                       {format(new Date(quote.validUntil.seconds * 1000), "dd MMM, yy", { locale: es })}
+                     </span>
+                   ) : "7 días"}
+                </TableCell>
                 <TableCell className="font-black text-lg text-black">${quote.total.toFixed(2)}</TableCell>
                 <TableCell>
                   <Badge className={cn(
                     "uppercase text-[9px] font-black px-3",
-                    quote.status === 'pendiente' ? "bg-orange-500" : "bg-green-600"
+                    quote.status === 'pendiente' ? "bg-orange-500" : 
+                    quote.status === 'convertida' ? "bg-green-600" : "bg-red-600"
                   )}>
                     {quote.status}
                   </Badge>

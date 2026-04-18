@@ -9,11 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { POSCart } from "@/components/pos/pos-cart"
 import { BarcodeScanner } from "@/components/pos/barcode-scanner"
-import { AddProductDialog } from "@/components/productos/add-product-dialog"
 import { Product, SaleItem, Quotation } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, query, where, limit, addDoc, serverTimestamp, doc, onSnapshot, deleteDoc } from "firebase/firestore"
+import { collection, query, where, limit, addDoc, serverTimestamp, doc, onSnapshot, deleteDoc, Timestamp } from "firebase/firestore"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -26,7 +25,6 @@ export default function NuevaCotizacionPage() {
   const [customerPhone, setCustomerPhone] = useState("")
   const [cart, setCart] = useState<SaleItem[]>([])
   const [isScannerOpen, setIsScannerOpen] = useState(false)
-  const [isAddProductOpen, setIsAddProductOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   
   const { toast } = useToast()
@@ -112,11 +110,18 @@ export default function NuevaCotizacionPage() {
 
     setIsSaving(true)
     try {
-      const folio = `C-${Date.now().toString().slice(-6)}`
+      // Generación de Folio Automático Premium
+      const folio = `COT-${Date.now().toString().slice(-6)}`
+      
+      // Cálculo de Vigencia (7 días por default)
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + 7);
+
       const quotationData = {
         ownerId: user.uid,
         folio: folio,
         date: serverTimestamp(),
+        validUntil: Timestamp.fromDate(validUntil),
         items: cart,
         subtotal: Number((total / 1.16).toFixed(2)),
         discount: 0,
@@ -133,11 +138,12 @@ export default function NuevaCotizacionPage() {
 
       toast({ 
         title: "COTIZACIÓN GUARDADA", 
-        description: `Folio: ${folio}`,
+        description: `Folio: ${folio} • Vence en 7 días`,
         className: "bg-teal-600 text-white font-black"
       })
       router.push("/cotizaciones")
     } catch (error) {
+      console.error(error);
       toast({ title: "ERROR AL GUARDAR", variant: "destructive" })
     } finally {
       setIsSaving(false)
