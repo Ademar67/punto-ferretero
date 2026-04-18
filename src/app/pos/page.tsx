@@ -157,7 +157,7 @@ export default function POSPage() {
     setCart(prev => prev.filter(item => item.productId !== productId))
   }
 
-  const total = useMemo(() => cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0), [cart])
+  const total = useMemo(() => cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), [cart])
 
   const playBeep = (freq = 880, dur = 0.15) => {
     try {
