@@ -17,6 +17,7 @@ import { PaymentMethod, SaleItem } from "@/types"
 import { useFirestore, useUser } from "@/firebase"
 import { collection, doc, writeBatch, serverTimestamp, increment } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 interface PaymentModalProps {
   isOpen: boolean
@@ -36,7 +37,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const db = useFirestore()
   const { user } = useUser()
 
-  // Auto-focus al abrir
+  // Auto-focus al abrir el modal
   useEffect(() => {
     if (isOpen) {
       setAmountPaid("")
@@ -93,6 +94,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       
       batch.set(saleRef, saleData)
 
+      // Descuento atómico de inventario
       cartItems.forEach((item) => {
         const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
         batch.update(productRef, {
@@ -114,7 +116,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
     }
   }
 
-  // Sugerencias de montos redondeados
+  // Sugerencias de montos redondeados para rapidez
   const quickAmounts = useMemo(() => {
     const suggestions = [
       total,
@@ -132,7 +134,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   return (
     <Dialog open={isOpen} onOpenChange={isProcessing ? undefined : onClose}>
       <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-none rounded-[3rem] shadow-2xl font-body">
-        {/* HEADER: EL TOTAL ES EL REY */}
+        {/* ENCABEZADO: EL TOTAL ES EL REY */}
         <DialogHeader className="bg-black p-10 text-white relative border-b-8 border-primary">
           <div className="flex flex-col mb-4">
             <span className="text-primary font-black uppercase tracking-[0.4em] text-[11px] italic">Terminal de Cobro</span>
@@ -182,7 +184,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
             </RadioGroup>
           </div>
 
-          {/* ÁREA DE EFECTIVO: FLUJO DE CAJA REAL */}
+          {/* FLUJO DE EFECTIVO */}
           {method === 'efectivo' && (
             <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
@@ -205,7 +207,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                       className="text-6xl h-28 font-black tracking-tighter rounded-[2rem] border-4 border-black focus-visible:ring-primary focus-visible:ring-offset-4 pl-14 bg-white shadow-[0_20px_40px_rgba(0,0,0,0.1)] transition-all"
                     />
                   </div>
-                  {/* SUGERENCIAS RÁPIDAS (SECUNDARIAS) */}
+                  {/* SUGERENCIAS RÁPIDAS */}
                   <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                     {quickAmounts.map((amt) => (
                       <Button 
@@ -253,7 +255,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
           )}
         </div>
 
-        {/* FOOTER: ACCIÓN FINAL */}
+        {/* ACCIÓN FINAL */}
         <DialogFooter className="p-10 bg-black/5 border-t border-muted flex flex-col sm:flex-row gap-4">
           <Button 
             variant="ghost" 
