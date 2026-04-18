@@ -1,14 +1,51 @@
-import type {Metadata} from 'next';
+
+'use client';
+
+import { useEffect, useState } from 'react';
 import './globals.css';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase';
+import { FirebaseClientProvider, useUser } from '@/firebase';
+import { SplashScreen } from '@/components/layout/splash-screen';
 
-export const metadata: Metadata = {
-  title: 'Punto Ferretero',
-  description: 'Sistema administrativo y punto de venta para ferreterías modernas.',
-};
+function AppContent({ children }: { children: React.ReactNode }) {
+  const { isUserLoading } = useUser();
+  const [initialLoading, setInitialLoading] = useState(true);
+
+  useEffect(() => {
+    // Garantizamos que el splash se muestre al menos 2.2 segundos para el efecto premium
+    const timer = setTimeout(() => {
+      if (!isUserLoading) {
+        setInitialLoading(false);
+      }
+    }, 2200);
+
+    if (!isUserLoading) {
+      // Si Firebase ya cargó, pero el timer no ha terminado, el useEffect del timer mandará
+    } else {
+      setInitialLoading(true);
+    }
+
+    return () => clearTimeout(timer);
+  }, [isUserLoading]);
+
+  return (
+    <>
+      <SplashScreen isLoading={initialLoading} />
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full bg-background">
+          <SidebarNav />
+          <SidebarInset>
+            <main className="flex-1 w-full overflow-y-auto">
+              {children}
+            </main>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    </>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -24,16 +61,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-          <SidebarProvider>
-            <div className="flex min-h-screen w-full bg-background">
-              <SidebarNav />
-              <SidebarInset>
-                <main className="flex-1 w-full overflow-y-auto">
-                  {children}
-                </main>
-              </SidebarInset>
-            </div>
-          </SidebarProvider>
+          <AppContent>
+            {children}
+          </AppContent>
           <Toaster />
         </FirebaseClientProvider>
       </body>
