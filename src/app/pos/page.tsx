@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -9,7 +8,7 @@ import { POSCart } from "@/components/pos/pos-cart"
 import { PaymentModal } from "@/components/pos/payment-modal"
 import { Product, SaleItem, PaymentMethod } from "@/types"
 import { useToast } from "@/hooks/use-toast"
-import { useFirestore, useCollection } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, query, where, limit } from "firebase/firestore"
 
 export default function POSPage() {
@@ -22,13 +21,14 @@ export default function POSPage() {
   
   const db = useFirestore()
 
-  // Consulta de productos reales desde Firestore
-  const productsQuery = useMemo(() => {
+  // Consulta de productos reales desde Firestore con memorización obligatoria
+  const productsQuery = useMemoFirebase(() => {
     if (!db) return null
+    // Nota: Esta es una consulta general. En producción se filtraría por negocio (ownerId)
     return query(collection(db, "products"), where("active", "==", true), limit(50))
   }, [db])
 
-  const { data: products, loading } = useCollection<Product>(productsQuery)
+  const { data: products, isLoading: loading } = useCollection<Product>(productsQuery)
 
   useEffect(() => {
     setMounted(true)
@@ -50,7 +50,7 @@ export default function POSPage() {
       if (existing) {
         return prev.map(item => 
           item.productId === product.id 
-            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
+            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.salePrice }
             : item
         )
       }
