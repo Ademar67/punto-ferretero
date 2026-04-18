@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
@@ -97,8 +98,33 @@ export default function POSPage() {
 
   const total = cart.reduce((acc, item) => acc + item.subtotal, 0)
 
+  // Función para reproducir sonido de caja (beep)
+  const playBeep = () => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // Nota A5, aguda y clara
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.15);
+    } catch (e) {
+      console.warn("AudioContext not supported or blocked by browser policies.");
+    }
+  };
+
   // Función de limpieza y preparación después de una venta exitosa
   const handleFinishSale = () => {
+    // Feedback auditivo
+    playBeep();
+
     setIsPaymentOpen(false)
     setCart([])
     setSearchTerm("")
