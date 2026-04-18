@@ -10,6 +10,7 @@ import { Product, SaleItem } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
 import { collection, query, where, limit, addDoc, serverTimestamp } from "firebase/firestore"
+import { cn } from "@/lib/utils"
 import Link from "next/link"
 
 export default function POSPage() {
@@ -58,7 +59,7 @@ export default function POSPage() {
       if (existing) {
         return prev.map(item => 
           item.productId === product.id 
-            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.salePrice }
+            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
             : item
         )
       }
@@ -133,7 +134,9 @@ export default function POSPage() {
     const testProducts = [
       { name: "Martillo de Uña 16oz", code: "M-101", brand: "Truper", salePrice: 180, costPrice: 110, stock: 10, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
       { name: "Destornillador Phillips", code: "D-202", brand: "Stanley", salePrice: 45, costPrice: 25, stock: 20, minStock: 5, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
-      { name: "Cinta Métrica 5m", code: "C-303", brand: "Lufkin", salePrice: 120, costPrice: 70, stock: 15, minStock: 3, unit: "pza", categoryId: "medicion", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
+      { name: "Cinta Métrica 5m", code: "C-303", brand: "Lufkin", salePrice: 120, costPrice: 70, stock: 15, minStock: 3, unit: "pza", categoryId: "medicion", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { name: "Pala Cuadrada T-2000", code: "P-404", brand: "Truper", salePrice: 320, costPrice: 210, stock: 8, minStock: 2, unit: "pza", categoryId: "herramientas", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() },
+      { name: "Pintura Vinílica Blanca 4L", code: "PV-505", brand: "Comex", salePrice: 450, costPrice: 280, stock: 12, minStock: 4, unit: "pza", categoryId: "pintura", active: true, ownerId: user.uid, ownerEmail: user.email, createdAt: serverTimestamp() }
     ]
     try {
       for (const p of testProducts) {
