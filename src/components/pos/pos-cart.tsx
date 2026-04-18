@@ -1,9 +1,10 @@
 "use client"
 
-import { Trash2, Minus, Plus, ShoppingCart, Info } from "lucide-react"
+import { Trash2, Minus, Plus, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { SaleItem } from "@/types"
-import { cn } from "@/lib/utils"
+import { useMemo } from "react"
 
 interface POSCartProps {
   items: SaleItem[]
@@ -13,9 +14,15 @@ interface POSCartProps {
 }
 
 export function POSCart({ items, updateQuantity, removeItem, total }: POSCartProps) {
-  // Cálculo de impuestos basado en el total (IVA 16% incluido)
-  const subtotalBeforeTax = total / 1.16
-  const iva = total - subtotalBeforeTax
+  // Aseguramos que el total sea numérico
+  const numericTotal = useMemo(() => {
+    const val = Number(total)
+    return isNaN(val) ? 0 : val
+  }, [total])
+
+  // Cálculo de impuestos (IVA 16% incluido)
+  const subtotalBeforeTax = numericTotal / 1.16
+  const iva = numericTotal - subtotalBeforeTax
 
   return (
     <div className="flex flex-col h-full bg-white font-body">
@@ -26,7 +33,7 @@ export function POSCart({ items, updateQuantity, removeItem, total }: POSCartPro
           <span className="font-black text-xs uppercase tracking-widest">Artículos en Carrito</span>
         </div>
         <Badge variant="secondary" className="bg-black text-white font-black text-[10px]">
-          {items.reduce((acc, item) => acc + item.quantity, 0)} UNIDADES
+          {items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0)} UNIDADES
         </Badge>
       </div>
 
@@ -48,7 +55,7 @@ export function POSCart({ items, updateQuantity, removeItem, total }: POSCartPro
                       {item.name}
                     </p>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
-                      P. Unit: ${item.price.toFixed(2)}
+                      P. Unit: ${(Number(item.price) || 0).toFixed(2)}
                     </p>
                   </div>
                   <Button 
@@ -71,7 +78,7 @@ export function POSCart({ items, updateQuantity, removeItem, total }: POSCartPro
                     >
                       <Minus className="w-3 h-3" />
                     </Button>
-                    <span className="w-10 text-center font-black text-sm tabular-nums">{item.quantity}</span>
+                    <span className="w-10 text-center font-black text-sm tabular-nums">{Number(item.quantity) || 0}</span>
                     <Button 
                       variant="ghost" 
                       size="icon" 
@@ -85,7 +92,7 @@ export function POSCart({ items, updateQuantity, removeItem, total }: POSCartPro
                   <div className="text-right">
                     <span className="text-[9px] font-black text-muted-foreground uppercase block leading-none mb-1">Subtotal</span>
                     <p className="font-black text-black text-lg tracking-tighter leading-none font-mono">
-                      ${item.subtotal.toFixed(2)}
+                      ${(Number(item.subtotal) || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -114,7 +121,7 @@ export function POSCart({ items, updateQuantity, removeItem, total }: POSCartPro
               <span className="text-[10px] font-black text-primary uppercase tracking-[0.3em] italic">Total a Pagar</span>
             </div>
             <p className="text-5xl font-black text-primary tracking-tighter leading-none italic font-mono">
-              ${total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+              ${numericTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className="text-right">
@@ -126,5 +133,3 @@ export function POSCart({ items, updateQuantity, removeItem, total }: POSCartPro
     </div>
   )
 }
-
-import { Badge } from "@/components/ui/badge"

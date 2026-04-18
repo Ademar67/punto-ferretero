@@ -59,21 +59,29 @@ export default function POSPage() {
   }, [products, searchTerm])
 
   const addToCart = (product: Product) => {
+    const price = Number(product.precioVenta) || 0
+    
     setCart(prev => {
       const existing = prev.find(item => item.productId === product.id)
       if (existing) {
-        return prev.map(item => 
-          item.productId === product.id 
-            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.precioVenta }
-            : item
-        )
+        return prev.map(item => {
+          if (item.productId === product.id) {
+            const newQty = item.quantity + 1
+            return { 
+              ...item, 
+              quantity: newQty, 
+              subtotal: Number((newQty * item.price).toFixed(2))
+            }
+          }
+          return item
+        })
       }
       return [...prev, { 
         productId: product.id, 
         name: product.nombre, 
-        price: product.precioVenta, 
+        price: price, 
         quantity: 1, 
-        subtotal: product.precioVenta,
+        subtotal: price,
         discount: 0 
       }]
     })
@@ -86,10 +94,8 @@ export default function POSPage() {
     if (e.key === 'Enter' && searchTerm.trim()) {
       e.preventDefault()
       
-      const rawCode = searchTerm.trim()
-      const normalizedCode = rawCode.toUpperCase()
-      
-      console.log(`[Pistola] Código leído: "${rawCode}" -> Normalizado: "${normalizedCode}"`)
+      const normalizedCode = searchTerm.trim().toUpperCase()
+      console.log(`[Escáner] Procesando código: "${normalizedCode}"`)
       
       const exactMatch = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
       
@@ -97,15 +103,15 @@ export default function POSPage() {
         addToCart(exactMatch)
         setSearchTerm("")
         toast({
-          title: "PRODUCTO IDENTIFICADO",
+          title: "PRODUCTO AGREGADO",
           description: exactMatch.nombre,
           className: "bg-black text-primary border-primary border-2 font-black",
         })
       } else {
         playBeep(220, 0.3)
         toast({
-          title: "CÓDIGO NO ENCONTRADO",
-          description: `El código "${normalizedCode}" no existe en el catálogo.`,
+          title: "NO ENCONTRADO",
+          description: `Código "${normalizedCode}" no existe.`,
           variant: "destructive",
           className: "bg-red-600 text-white font-black",
         })
@@ -115,10 +121,8 @@ export default function POSPage() {
   }
 
   const handleCameraScan = (code: string) => {
-    const rawCode = code.trim()
-    const normalizedCode = rawCode.toUpperCase()
-    
-    console.log(`[Cámara] Código detectado: "${rawCode}" -> Normalizado: "${normalizedCode}"`)
+    const normalizedCode = code.trim().toUpperCase()
+    console.log(`[Cámara] Procesando código: "${normalizedCode}"`)
     
     const product = products?.find(p => p.codigo.toUpperCase() === normalizedCode)
     
@@ -134,7 +138,7 @@ export default function POSPage() {
       playBeep(220, 0.3)
       toast({
         title: "PRODUCTO DESCONOCIDO",
-        description: `No existe un producto con el código "${normalizedCode}".`,
+        description: `No existe producto con código "${normalizedCode}".`,
         variant: "destructive",
         className: "bg-red-600 text-white font-black",
       })
@@ -145,7 +149,11 @@ export default function POSPage() {
     setCart(prev => prev.map(item => {
       if (item.productId === productId) {
         const newQty = Math.max(1, item.quantity + delta)
-        return { ...item, quantity: newQty, subtotal: newQty * item.price }
+        return { 
+          ...item, 
+          quantity: newQty, 
+          subtotal: Number((newQty * item.price).toFixed(2))
+        }
       }
       return item
     }))
@@ -155,7 +163,10 @@ export default function POSPage() {
     setCart(prev => prev.filter(item => item.productId !== productId))
   }
 
-  const total = cart.reduce((acc, item) => acc + item.subtotal, 0)
+  const total = useMemo(() => {
+    const val = cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0)
+    return isNaN(val) ? 0 : Number(val.toFixed(2))
+  }, [cart])
 
   const playBeep = (freq = 880, dur = 0.15) => {
     try {
@@ -290,7 +301,7 @@ export default function POSPage() {
                       <h3 className="font-black text-xs text-black uppercase truncate mb-1">{product.nombre}</h3>
                       <p className="text-[9px] text-muted-foreground font-bold uppercase italic">{product.marca}</p>
                       <div className="mt-4 pt-3 border-t border-dashed border-muted flex items-end justify-between">
-                        <span className="text-2xl font-black text-black tracking-tighter font-mono">${product.precioVenta.toFixed(2)}</span>
+                        <span className="text-2xl font-black text-black tracking-tighter font-mono">${(Number(product.precioVenta) || 0).toFixed(2)}</span>
                         <div className="w-6 h-6 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary transition-colors">
                           <PlusCircle className="w-4 h-4 text-black" />
                         </div>

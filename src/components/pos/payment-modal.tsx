@@ -37,6 +37,12 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const db = useFirestore()
   const { user } = useUser()
 
+  // Aseguramos que el total sea numérico para evitar NaN en cálculos locales
+  const numericTotal = useMemo(() => {
+    const val = Number(total)
+    return isNaN(val) ? 0 : val
+  }, [total])
+
   useEffect(() => {
     if (isOpen) {
       setAmountPaid("")
@@ -50,14 +56,14 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
 
   const change = useMemo(() => {
     const paid = parseFloat(amountPaid) || 0
-    return Math.max(0, paid - total)
-  }, [amountPaid, total])
+    return Math.max(0, paid - numericTotal)
+  }, [amountPaid, numericTotal])
 
   const isInsufficientAmount = useMemo(() => {
     if (method !== 'efectivo' || !amountPaid) return false
     const paid = parseFloat(amountPaid) || 0
-    return paid < total
-  }, [method, amountPaid, total])
+    return paid < numericTotal
+  }, [method, amountPaid, numericTotal])
 
   const handleConfirm = async () => {
     if (!db || !user?.uid) {
@@ -65,12 +71,12 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
       return
     }
 
-    const paid = method === 'efectivo' ? (parseFloat(amountPaid) || 0) : total
+    const paid = method === 'efectivo' ? (parseFloat(amountPaid) || 0) : numericTotal
     
-    if (method === 'efectivo' && paid < total) {
+    if (method === 'efectivo' && paid < numericTotal) {
       toast({ 
         title: "PAGO INSUFICIENTE", 
-        description: `Faltan $${(total - paid).toFixed(2)} para completar el total.`, 
+        description: `Faltan $${(numericTotal - paid).toFixed(2)} para completar el total.`, 
         className: "bg-black text-red-500 border-red-500 border-2 font-black"
       })
       amountInputRef.current?.focus()
@@ -89,24 +95,29 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
         userId: user.uid,
         userEmail: user.email,
         date: serverTimestamp(),
-        items: cartItems,
-        total: total,
-        subtotal: total / 1.16, // Estimación simple si no se calcula por ítem
+        items: cartItems.map(item => ({
+          ...item,
+          price: Number(item.price) || 0,
+          quantity: Number(item.quantity) || 0,
+          subtotal: Number(item.subtotal) || 0,
+        })),
+        total: numericTotal,
+        subtotal: Number((numericTotal / 1.16).toFixed(2)),
         discount: 0,
         paymentMethod: method,
         amountPaid: paid,
         change: change,
         status: 'completada' as SaleStatus,
         createdAt: serverTimestamp(),
-        folio: `V-${Date.now().toString().slice(-6)}` // Folio temporal simplificado
+        folio: `V-${Date.now().toString().slice(-6)}`
       }
       
       batch.set(saleRef, saleData)
 
       cartItems.forEach((item) => {
-        const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
+        const productRef = doc(db, "negocios", user.uid!, "productos", item.productId)
         batch.update(productRef, {
-          stock: increment(-item.quantity)
+          stockActual: increment(-Number(item.quantity || 0))
         })
       })
 
@@ -131,7 +142,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && method === 'efectivo') {
       const paid = parseFloat(amountPaid) || 0
-      if (paid >= total && !isProcessing) {
+      if (paid >= numericTotal && !isProcessing) {
         handleConfirm()
       }
     }
@@ -139,17 +150,17 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
 
   const quickAmounts = useMemo(() => {
     const suggestions = [
-      total,
-      Math.ceil(total / 50) * 50,
-      Math.ceil(total / 100) * 100,
-      Math.ceil(total / 200) * 200,
-      Math.ceil(total / 500) * 500,
+      numericTotal,
+      Math.ceil(numericTotal / 50) * 50,
+      Math.ceil(numericTotal / 100) * 100,
+      Math.ceil(numericTotal / 200) * 200,
+      Math.ceil(numericTotal / 500) * 500,
     ]
     return Array.from(new Set(suggestions))
-      .filter(a => a >= total)
+      .filter(a => a >= numericTotal)
       .sort((a, b) => a - b)
       .slice(0, 4)
-  }, [total])
+  }, [numericTotal])
 
   return (
     <Dialog open={isOpen} onOpenChange={isProcessing ? undefined : onClose}>
@@ -162,7 +173,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
           <div className="flex items-end justify-between">
             <div className="flex flex-col">
               <span className="text-white/30 text-[10px] font-black uppercase tracking-[0.3em]">Total Neto a Cobrar</span>
-              <div className="text-8xl font-black text-primary tracking-tighter italic leading-none">$ {total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
+              <div className="text-8xl font-black text-primary tracking-tighter italic leading-none">$ {numericTotal.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</div>
             </div>
             <div className="bg-white/5 p-4 rounded-3xl border border-white/10 hidden sm:block">
               <Calculator className="w-12 h-12 text-white/20" />
@@ -237,7 +248,7 @@ export function PaymentModal({ isOpen, onClose, total, cartItems, onConfirm }: P
                   </div>
                   {isInsufficientAmount ? (
                     <p className="text-red-600 font-black text-[10px] uppercase tracking-widest animate-pulse flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" /> Falta: $ {(total - parseFloat(amountPaid)).toFixed(2)}
+                      <AlertCircle className="w-3 h-3" /> Falta: $ {(numericTotal - parseFloat(amountPaid)).toFixed(2)}
                     </p>
                   ) : (
                     <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
