@@ -1,14 +1,12 @@
 const CACHE_NAME = 'punto-ferretero-v1';
-const urlsToCache = ['/', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
-  );
+  console.log('SW instalado');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
+  console.log('SW activo');
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
@@ -27,29 +25,24 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return (
-        cachedResponse ||
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (
-              !networkResponse ||
-              networkResponse.status !== 200 ||
-              networkResponse.type !== 'basic'
-            ) {
-              return networkResponse;
-            }
+    fetch(event.request)
+      .then((response) => {
+        // solo cachea respuestas válidas
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
 
-            const responseToCache = networkResponse.clone();
+        const responseClone = response.clone();
 
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseClone);
+        });
 
-            return networkResponse;
-          })
-          .catch(() => cachedResponse)
-      );
-    })
+        return response;
+      })
+      .catch(() => {
+        // fallback a cache
+        return caches.match(event.request);
+      })
   );
 });
