@@ -1,51 +1,26 @@
-
-'use client';
-
-import { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider, useUser } from '@/firebase';
+import { FirebaseClientProvider } from '@/firebase';
+import AppShell from '@/components/layout/AppShell';
 
-// Importación dinámica con SSR desactivado para evitar errores de hidratación
-const SplashScreen = dynamic(
-  () => import('@/components/layout/splash-screen').then((mod) => mod.SplashScreen),
-  { ssr: false }
-);
+export const metadata: Metadata = {
+  title: 'Punto Ferretero',
+  description: 'CRM / POS tipo app para Punto Ferretero',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Punto Ferretero',
+  },
+};
 
-function AppContent({ children }: { children: React.ReactNode }) {
-  const { isUserLoading } = useUser();
-  const [initialLoading, setInitialLoading] = useState(true);
-
-  useEffect(() => {
-    // Garantizamos que el splash se muestre al menos 2.2 segundos para el efecto de marca
-    const timer = setTimeout(() => {
-      if (!isUserLoading) {
-        setInitialLoading(false);
-      }
-    }, 2200);
-
-    return () => clearTimeout(timer);
-  }, [isUserLoading]);
-
-  return (
-    <>
-      <SplashScreen isLoading={initialLoading} />
-      <SidebarProvider>
-        <div className="flex min-h-screen w-full bg-background">
-          <SidebarNav />
-          <SidebarInset>
-            <main className="flex-1 w-full overflow-y-auto">
-              {children}
-            </main>
-          </SidebarInset>
-        </div>
-      </SidebarProvider>
-    </>
-  );
-}
+export const viewport: Viewport = {
+  themeColor: '#dc2626',
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
 
 export default function RootLayout({
   children,
@@ -57,13 +32,14 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-          <AppContent>
-            {children}
-          </AppContent>
+          <AppShell>{children}</AppShell>
           <Toaster />
         </FirebaseClientProvider>
       </body>
