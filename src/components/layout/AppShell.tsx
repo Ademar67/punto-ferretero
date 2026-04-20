@@ -6,6 +6,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { useUser } from '@/firebase';
 import PWAInit from '@/components/pwa/PWAInit';
+import InstallButton from '@/components/pwa/InstallButton'; // 👈 NUEVO
 
 // Importación dinámica con SSR desactivado para evitar errores de hidratación
 const SplashScreen = dynamic(
@@ -39,12 +40,16 @@ export default function AppShell({
         <div className="flex min-h-screen w-full bg-background">
           <SidebarNav />
           <SidebarInset>
-            <main className="flex-1 w-full overflow-y-auto">{children}</main>
+            <main className="flex-1 w-full overflow-y-auto">
+              {children}
+            </main>
           </SidebarInset>
         </div>
       </SidebarProvider>
 
+      {/* 🔥 PWA */}
       <PWAInit />
+      <InstallButton /> {/* 👈 BOTÓN INSTALAR */}
     </>
   );
 }
