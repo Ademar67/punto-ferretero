@@ -1,39 +1,31 @@
 'use client';
 
-import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { firebaseConfig } from './config';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+/**
+ * Inicializa las instancias de Firebase utilizando la configuración centralizada.
+ * Reutiliza la aplicación existente si ya ha sido inicializada (útil para Hot Reload).
+ */
 export function initializeFirebase() {
-  if (!getApps().length) {
-    let firebaseApp: FirebaseApp;
+  let firebaseApp: FirebaseApp;
 
-    if (typeof window !== 'undefined') {
-      try {
-        // Firebase App Hosting puede inyectar config automáticamente en cliente
-        firebaseApp = initializeApp();
-      } catch (e) {
-        if (process.env.NODE_ENV === 'production') {
-          console.warn(
-            'Automatic initialization failed. Falling back to firebase config object.',
-            e
-          );
-        }
-        firebaseApp = initializeApp(firebaseConfig);
-      }
-    } else {
-      // En server/build NO intentamos auto-init sin args
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-
-    return getSdks(firebaseApp);
+  if (getApps().length > 0) {
+    firebaseApp = getApp();
+  } else {
+    // CRITICAL FIX: Se utiliza el objeto de configuración importado desde config.ts
+    // para asegurar que la API Key y otros parámetros sean válidos en el cliente.
+    firebaseApp = initializeApp(firebaseConfig);
   }
 
-  return getSdks(getApp());
+  return getSdks(firebaseApp);
 }
 
+/**
+ * Retorna los servicios de Firebase (Auth y Firestore) a partir de la app inicializada.
+ */
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
@@ -42,11 +34,6 @@ export function getSdks(firebaseApp: FirebaseApp) {
   };
 }
 
+// Re-exportación de componentes y hooks de Firebase para uso en toda la app
 export * from './provider';
 export * from './client-provider';
-export * from './firestore/use-collection';
-export * from './firestore/use-doc';
-export * from './non-blocking-updates';
-export * from './non-blocking-login';
-export * from './errors';
-export * from './error-emitter';
