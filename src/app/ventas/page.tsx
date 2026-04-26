@@ -168,20 +168,30 @@ export default function VentasPage() {
         }
 
         const freshSale = saleSnap.data() as Sale & {
-          returnedItemsByProductId?: ReturnedItemsByProductId
+          returnedItemsByProductId?: Record<string, number>
+          refundedAmount?: number
+          originalTotal?: number
         }
 
         if (freshSale.status === "cancelada") {
           throw new Error("Esta venta ya fue cancelada por completo.")
         }
 
-        const currentReturnedItemsByProductId: ReturnedItemsByProductId =
+        const currentReturnedItemsByProductId =
           freshSale.returnedItemsByProductId || {}
 
-        let totalReturnedAfterThisCancel = 0
-        const updatedReturnedItemsByProductId: ReturnedItemsByProductId = {
+        const updatedReturnedItemsByProductId = {
           ...currentReturnedItemsByProductId,
         }
+
+        const currentRefundedAmount = Number(freshSale.refundedAmount || 0)
+
+        const originalTotal =
+          typeof freshSale.originalTotal === "number"
+            ? Number(freshSale.originalTotal)
+            : Number(freshSale.total || 0) + currentRefundedAmount
+
+        let refundAmountThisTransaction = 0
 
         for (const selectedItem of selectedItems) {
           const freshItem = freshSale.items.find(
@@ -205,7 +215,7 @@ export default function VentasPage() {
 
           if (selectedItem.qtyToReturn > availableToReturn) {
             throw new Error(
-              `No puedes devolver ${selectedItem.qtyToReturn} de ${freshItem.name}. Disponible para devolver: ${availableToReturn}.`
+              `No puedes devolver ${selectedItem.qtyToReturn} de ${freshItem.name}. Disponible: ${availableToReturn}.`
             )
           }
 
@@ -232,6 +242,12 @@ export default function VentasPage() {
             updatedAt: serverTimestamp(),
           })
 
+          const precioUnitario =
+            soldQty > 0 ? Number(freshItem.subtotal || 0) / soldQty : 0
+
+          const refundLineAmount = precioUnitario * selectedItem.qtyToReturn
+          refundAmountThisTransaction += refundLineAmount
+
           const movementRef = doc(
             collection(db, "negocios", user.uid, "movimientosInventario")
           )
@@ -241,8 +257,9 @@ export default function VentasPage() {
             productId: selectedItem.productId,
             productName: freshItem.name,
             codigo: selectedItem.productId,
-            type: "cancelacion_parcial",
+            type: "devolucion",
             quantity: selectedItem.qtyToReturn,
+            refundAmount: refundLineAmount,
             reason:
               cancelReason ||
               `Devolución/cancelación parcial de venta folio ${freshSale.folio}`,
@@ -257,6 +274,8 @@ export default function VentasPage() {
             alreadyReturnedQty + selectedItem.qtyToReturn
         }
 
+        let totalReturnedAfterThisCancel = 0
+
         freshSale.items.forEach((item) => {
           totalReturnedAfterThisCancel += Number(
             updatedReturnedItemsByProductId[item.productId] || 0
@@ -268,13 +287,24 @@ export default function VentasPage() {
           0
         )
 
+        const newRefundedAmount = currentRefundedAmount + refundAmountThisTransaction
+
         const newStatus =
           totalReturnedAfterThisCancel >= totalSoldQty
             ? "cancelada"
             : "parcialmente_cancelada"
 
+        const newTotal =
+          newStatus === "cancelada"
+            ? 0
+            : Math.max(0, originalTotal - newRefundedAmount)
+
         transaction.update(saleRef, {
           status: newStatus,
+          total: newTotal,
+          originalTotal,
+          refundedAmount: newRefundedAmount,
+          lastRefundAmount: refundAmountThisTransaction,
           returnedItemsByProductId: updatedReturnedItemsByProductId,
           lastCancelledAt: serverTimestamp(),
           cancelledAt: newStatus === "cancelada" ? serverTimestamp() : null,
@@ -286,13 +316,14 @@ export default function VentasPage() {
 
       toast({
         title: "DEVOLUCIÓN REGISTRADA",
-        description: `El folio ${cancellingSale.folio} fue actualizado y el stock devuelto correctamente.`,
+        description: `Se devolvió producto y dinero del folio ${cancellingSale.folio}.`,
         className: "bg-black text-primary border-primary border-2 font-black",
       })
 
       closeCancelModal()
     } catch (error: any) {
       console.error("Error al cancelar venta:", error)
+
       toast({
         title: "ERROR",
         description:
@@ -344,7 +375,7 @@ export default function VentasPage() {
         <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
           <CardHeader className="pb-2 bg-primary/5">
             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-              Total Ventas Brutas
+              Total Ventas Netas
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-4">
@@ -356,7 +387,7 @@ export default function VentasPage() {
                     acc +
                     (s.status === "completada" ||
                     s.status === "parcialmente_cancelada"
-                      ? s.total
+                      ? Number(s.total || 0)
                       : 0),
                   0
                 )
@@ -466,6 +497,11 @@ export default function VentasPage() {
                         PARCIAL
                       </Badge>
                     )}
+                    {sale.status === "cancelada" && (
+                      <Badge className="w-fit bg-red-600 text-white text-[8px] font-black">
+                        CANCELADA
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
 
@@ -495,7 +531,7 @@ export default function VentasPage() {
                     sale.status === "cancelada" ? "text-red-300" : "text-black"
                   )}
                 >
-                  ${sale.total.toFixed(2)}
+                  ${Number(sale.total || 0).toFixed(2)}
                 </TableCell>
 
                 <TableCell>
@@ -570,7 +606,7 @@ export default function VentasPage() {
             <AlertDialogDescription className="text-base font-medium">
               Selecciona cuántas piezas vas a devolver del folio{" "}
               <span className="font-black text-black">{cancellingSale?.folio}</span>.
-              Si devuelves todo, la venta quedará como cancelada.
+              Si devuelves todo, la venta quedará como cancelada y el total será $0.
             </AlertDialogDescription>
 
             <div className="mt-6 space-y-4">
