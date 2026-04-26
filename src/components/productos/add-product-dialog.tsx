@@ -81,7 +81,7 @@ export function AddProductDialog({
   initialCode,
 }: AddProductDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
 
@@ -122,13 +122,19 @@ export function AddProductDialog({
   }
 
   const onSubmit = async (values: ProductFormValues) => {
-    console.log("CLICK GUARDAR PRODUCTO:", values)
+    if (isUserLoading) {
+      toast({
+        title: "CARGANDO SESIÓN",
+        description: "Espera un momento, todavía estamos validando tu usuario.",
+        variant: "destructive",
+      })
+      return
+    }
 
     if (!db || !user?.uid) {
-      console.error("FALTA DB O USER", { db, user })
       toast({
         title: "SESIÓN NO LISTA",
-        description: "No hay usuario activo o conexión con Firebase.",
+        description: "Cierra sesión, vuelve a entrar e intenta guardar otra vez.",
         variant: "destructive",
       })
       return
@@ -161,33 +167,31 @@ export function AddProductDialog({
 
       const productRef = doc(db, "negocios", user.uid, "productos", docId)
 
-      const finalData = {
-        id: docId,
-        nombre: values.nombre.trim(),
-        codigo: codigoNormalizado,
-        marca: values.marca.trim() || "Genérico",
-        categoriaId: values.categoriaId || "general",
-        precioCompra: Number(values.precioCompra || 0),
-        precioVenta: Number(values.precioVenta || 0),
-        stockActual: Number(values.stockActual || 0),
-        stockMinimo: Number(values.stockMinimo || 0),
-        unidad: values.unidad.trim() || "pza",
-        activo: values.activo ?? true,
-        ownerId: user.uid,
-        ownerEmail: user.email || "",
-        updatedAt: serverTimestamp(),
-        createdAt: productToEdit?.createdAt || serverTimestamp(),
-      }
-
-      console.log("GUARDANDO EN FIRESTORE:", finalData)
-
-      await setDoc(productRef, finalData, { merge: true })
-
-      console.log("PRODUCTO GUARDADO OK")
+      await setDoc(
+        productRef,
+        {
+          id: docId,
+          nombre: values.nombre.trim(),
+          codigo: codigoNormalizado,
+          marca: values.marca.trim() || "Genérico",
+          categoriaId: values.categoriaId || "general",
+          precioCompra: Number(values.precioCompra || 0),
+          precioVenta: Number(values.precioVenta || 0),
+          stockActual: Number(values.stockActual || 0),
+          stockMinimo: Number(values.stockMinimo || 0),
+          unidad: values.unidad.trim() || "pza",
+          activo: values.activo ?? true,
+          ownerId: user.uid,
+          ownerEmail: user.email || "",
+          updatedAt: serverTimestamp(),
+          createdAt: productToEdit?.createdAt || serverTimestamp(),
+        },
+        { merge: true }
+      )
 
       toast({
         title: productToEdit ? "PRODUCTO ACTUALIZADO" : "PRODUCTO REGISTRADO",
-        description: `${finalData.nombre} guardado correctamente.`,
+        description: `${values.nombre} guardado correctamente.`,
         className: "bg-black text-primary border-primary border-2 font-black",
       })
 
@@ -209,8 +213,7 @@ export function AddProductDialog({
     }
   }
 
-  const onInvalid = (errors: unknown) => {
-    console.error("FORMULARIO INVÁLIDO:", errors)
+  const onInvalid = () => {
     toast({
       title: "REVISA LOS CAMPOS",
       description: "Hay datos incompletos o con formato incorrecto.",
@@ -422,10 +425,10 @@ export function AddProductDialog({
 
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUserLoading || !user?.uid || !db}
                 className="flex-[2] h-14 bg-black hover:bg-primary hover:text-black text-primary font-black uppercase italic tracking-tighter text-xl rounded-xl shadow-xl transition-all active:scale-95"
               >
-                {isSubmitting ? (
+                {isSubmitting || isUserLoading ? (
                   <Loader2 className="animate-spin" />
                 ) : (
                   <>
