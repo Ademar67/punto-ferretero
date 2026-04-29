@@ -42,6 +42,8 @@ import { useToast } from "@/hooks/use-toast"
 import { format, isAfter } from "date-fns"
 import { es } from "date-fns/locale"
 import { QuotationView } from "@/components/cotizaciones/quotation-view"
+import { generarCotizacionPDF } from "@/lib/pdf/generarCotizacionPDF"
+import { shareQuotationWhatsApp } from "@/lib/shareQuotationWhatsApp"
 
 export default function CotizacionesPage() {
   const { user } = useUser()
@@ -81,6 +83,7 @@ export default function CotizacionesPage() {
             return { ...q, status: "vencida" as const }
           }
         }
+
         return q
       })
   }, [quotations, searchTerm])
@@ -90,9 +93,17 @@ export default function CotizacionesPage() {
 
     try {
       await deleteDoc(doc(db, "negocios", user.uid, "cotizaciones", id))
-      toast({ title: "COTIZACIÓN ELIMINADA" })
-    } catch {
-      toast({ title: "ERROR AL ELIMINAR", variant: "destructive" })
+
+      toast({
+        title: "COTIZACIÓN ELIMINADA",
+      })
+    } catch (error) {
+      console.error("Error al eliminar cotización:", error)
+
+      toast({
+        title: "ERROR AL ELIMINAR",
+        variant: "destructive",
+      })
     }
   }
 
@@ -108,7 +119,11 @@ export default function CotizacionesPage() {
       return
     }
 
-    if (!confirm(`¿Convertir cotización ${quotation.folio} a venta real? Se descontará inventario.`)) {
+    if (
+      !confirm(
+        `¿Convertir cotización ${quotation.folio} a venta real? Se descontará inventario.`
+      )
+    ) {
       return
     }
 
@@ -141,6 +156,7 @@ export default function CotizacionesPage() {
       }
 
       batch.set(saleRef, saleData)
+
       batch.update(quoteRef, {
         status: "convertida",
         convertedToSaleId: saleRef.id,
@@ -148,6 +164,7 @@ export default function CotizacionesPage() {
 
       quotation.items.forEach((item) => {
         const productRef = doc(db, "negocios", user.uid, "productos", item.productId)
+
         batch.update(productRef, {
           stockActual: increment(-Number(item.quantity)),
         })
@@ -160,20 +177,58 @@ export default function CotizacionesPage() {
         description: `Venta generada con folio ${saleFolio}`,
         className: "bg-green-600 text-white font-black",
       })
-    } catch {
-      toast({ title: "ERROR EN CONVERSIÓN", variant: "destructive" })
+    } catch (error) {
+      console.error("Error al convertir cotización:", error)
+
+      toast({
+        title: "ERROR EN CONVERSIÓN",
+        variant: "destructive",
+      })
     } finally {
       setIsProcessing(false)
     }
   }
 
-  const shareWhatsApp = (quote: Quotation) => {
-    const text = `Hola! Te envío la cotización ${quote.folio} de Punto Ferretero por un total de $${Number(
-      quote.total || 0
-    ).toFixed(2)}. Tiene vigencia de 7 días. Quedamos a tus órdenes.`
+  const shareWhatsApp = async (quote: Quotation) => {
+    try {
+      const pdfQuote = {
+        id: quote.folio || quote.id,
+        clienteNombre: quote.customerName || "Público general",
+        clienteTelefono: quote.customerPhone || "",
+        productos: quote.items.map((item: any) => ({
+          nombre: item.name || item.nombre || "Producto",
+          cantidad: Number(item.quantity || item.cantidad || 0),
+          precio: Number(item.price || item.unitPrice || item.precio || 0),
+        })),
+        total: Number(quote.total || 0),
+        createdAt: quote.date,
+        validoHasta: quote.validUntil,
+        notas: "Cotización válida por 7 días.",
+      }
 
-    const url = `https://wa.me/${quote.customerPhone || ""}?text=${encodeURIComponent(text)}`
-    window.open(url, "_blank")
+      const blob = await generarCotizacionPDF(pdfQuote)
+
+      await shareQuotationWhatsApp({
+        blob,
+        folio: pdfQuote.id,
+        phone: pdfQuote.clienteTelefono,
+        total: pdfQuote.total,
+      })
+
+      toast({
+        title: "COTIZACIÓN LISTA",
+        description: "Se generó el PDF y se abrió WhatsApp.",
+        className: "bg-green-600 text-white font-black",
+      })
+    } catch (error) {
+      console.error("Error al compartir cotización:", error)
+
+      toast({
+        title: "ERROR",
+        description: "No se pudo generar o compartir la cotización.",
+        variant: "destructive",
+      })
+    }
   }
 
   if (isLoading) {
@@ -194,6 +249,7 @@ export default function CotizacionesPage() {
           <div className="w-12 h-12 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg">
             <FileText className="w-6 h-6 text-white" />
           </div>
+
           <div>
             <h1 className="text-4xl font-black tracking-tighter text-black uppercase italic leading-none">
               Módulo de <span className="text-teal-600">Cotizaciones</span>
@@ -219,6 +275,7 @@ export default function CotizacionesPage() {
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+
           <Input
             placeholder="Buscar por folio o cliente..."
             className="pl-12 h-14 border-2 focus:border-teal-600 text-lg rounded-xl"
@@ -287,9 +344,11 @@ export default function CotizacionesPage() {
                           : "text-muted-foreground"
                       )}
                     >
-                      {format(new Date(quote.validUntil.seconds * 1000), "dd MMM, yy", {
-                        locale: es,
-                      })}
+                      {format(
+                        new Date(quote.validUntil.seconds * 1000),
+                        "dd MMM, yy",
+                        { locale: es }
+                      )}
                     </span>
                   ) : (
                     "7 días"
@@ -307,8 +366,8 @@ export default function CotizacionesPage() {
                       quote.status === "pendiente"
                         ? "bg-orange-500"
                         : quote.status === "convertida"
-                        ? "bg-green-600"
-                        : "bg-red-600"
+                          ? "bg-green-600"
+                          : "bg-red-600"
                     )}
                   >
                     {quote.status}
@@ -387,7 +446,7 @@ export default function CotizacionesPage() {
                 Imprimir
               </Button>
 
-              {viewingQuotation?.customerPhone && (
+              {viewingQuotation && (
                 <Button
                   className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white font-black uppercase rounded-xl"
                   onClick={() => shareWhatsApp(viewingQuotation)}

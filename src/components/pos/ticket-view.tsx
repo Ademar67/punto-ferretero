@@ -19,6 +19,13 @@ export function TicketView({ sale }: TicketViewProps) {
   const returnedItemsByProductId =
     ((sale as any).returnedItemsByProductId || {}) as ReturnedItemsByProductId
 
+  const originalTotal = Number((sale as any).originalTotal ?? sale.total ?? 0)
+  const refundedAmount = Number((sale as any).refundedAmount || 0)
+  const finalTotal = Number(sale.total || 0)
+
+  const subtotalFinal = finalTotal / 1.16
+  const ivaFinal = finalTotal - subtotalFinal
+
   const getReturnedQty = (productId: string) => {
     return Number(returnedItemsByProductId[productId] || 0)
   }
@@ -39,6 +46,7 @@ export function TicketView({ sale }: TicketViewProps) {
 
   const isCancelled = sale.status === "cancelada"
   const isPartial = sale.status === "parcialmente_cancelada"
+  const hasRefund = refundedAmount > 0 || isCancelled || isPartial
 
   return (
     <div className="w-full bg-white text-black font-mono text-[10px] leading-tight p-4 border border-dashed border-gray-300 shadow-inner">
@@ -82,15 +90,11 @@ export function TicketView({ sale }: TicketViewProps) {
                   : "font-black uppercase"
             }
           >
-            {isCancelled
-              ? "cancelada"
-              : isPartial
-                ? "parcial"
-                : sale.status}
+            {isCancelled ? "cancelada" : isPartial ? "parcial" : sale.status}
           </span>
         </div>
 
-        {(isPartial || isCancelled) && (
+        {hasRefund && (
           <div className="mt-2 rounded border border-dashed border-gray-300 p-2 bg-gray-50">
             <div className="flex justify-between font-black uppercase">
               <span>Vendido:</span>
@@ -125,7 +129,9 @@ export function TicketView({ sale }: TicketViewProps) {
             return (
               <div
                 key={`ticket-item-${idx}`}
-                className={hasReturn ? "border-b border-dashed border-gray-200 pb-2" : ""}
+                className={
+                  hasReturn ? "border-b border-dashed border-gray-200 pb-2" : ""
+                }
               >
                 <div className="flex justify-between items-start">
                   <span
@@ -162,24 +168,38 @@ export function TicketView({ sale }: TicketViewProps) {
       </div>
 
       <div className="border-t border-dashed border-gray-300 pt-4 space-y-2">
+        {hasRefund && (
+          <>
+            <div className="flex justify-between font-black text-gray-600">
+              <span>TOTAL ORIGINAL:</span>
+              <span>${originalTotal.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between font-black text-red-600">
+              <span>DEVUELTO:</span>
+              <span>-${refundedAmount.toFixed(2)}</span>
+            </div>
+          </>
+        )}
+
         <div className="flex justify-between text-gray-600">
-          <span className="font-bold">SUBTOTAL (SIN IVA):</span>
-          <span>${(sale.total / 1.16).toFixed(2)}</span>
+          <span className="font-bold">SUBTOTAL FINAL:</span>
+          <span>${subtotalFinal.toFixed(2)}</span>
         </div>
 
         <div className="flex justify-between text-gray-600">
-          <span className="font-bold">IVA (16%):</span>
-          <span>${(sale.total - sale.total / 1.16).toFixed(2)}</span>
+          <span className="font-bold">IVA FINAL (16%):</span>
+          <span>${ivaFinal.toFixed(2)}</span>
         </div>
 
         <div className="flex justify-between text-lg font-black italic border-t-2 border-black pt-2">
-          <span>TOTAL ORIGINAL:</span>
-          <span className="tracking-tighter">${sale.total.toFixed(2)}</span>
+          <span>{hasRefund ? "TOTAL FINAL:" : "TOTAL:"}</span>
+          <span className="tracking-tighter">${finalTotal.toFixed(2)}</span>
         </div>
 
-        {(isPartial || isCancelled) && (
+        {hasRefund && (
           <p className="text-[8px] font-black uppercase text-center text-red-600 border border-dashed border-red-300 p-2">
-            Este ticket tiene devolución registrada. Revisar piezas activas.
+            Este ticket tiene devolución registrada. Revisar piezas activas y total final.
           </p>
         )}
       </div>
