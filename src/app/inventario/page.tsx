@@ -1,6 +1,15 @@
 "use client"
 
-import { Plus, Minus, History, Package, Loader2, Trash2 } from "lucide-react"
+import { useState } from "react"
+import {
+  Plus,
+  Minus,
+  History,
+  Package,
+  Loader2,
+  Trash2,
+  RotateCcw,
+} from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,10 +38,14 @@ import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
+type FiltroMovimientos = "activos" | "ocultos" | "todos"
+
 export default function InventarioPage() {
   const { user, isUserLoading } = useUser()
   const db = useFirestore()
   const { toast } = useToast()
+  const [filtroMovimientos, setFiltroMovimientos] =
+    useState<FiltroMovimientos>("activos")
 
   const movementsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null
@@ -40,18 +53,23 @@ export default function InventarioPage() {
     return query(
       collection(db, "negocios", user.uid, "movimientosInventario"),
       orderBy("date", "desc"),
-      limit(100)
+      limit(200)
     )
   }, [db, user?.uid])
 
   const { data: movementsRaw, isLoading } =
     useCollection<InventoryMovement>(movementsQuery)
 
-  const movements = (movementsRaw || []).filter((mv: any) => mv.activo !== false)
+  const allMovements = movementsRaw || []
+
+  const movements = allMovements.filter((mv: any) => {
+    if (filtroMovimientos === "activos") return mv.activo !== false
+    if (filtroMovimientos === "ocultos") return mv.activo === false
+    return true
+  })
 
   const handleDeleteMovimiento = async (id: string) => {
     if (!db || !user?.uid) return
-
     if (!confirm("¿Ocultar este movimiento de la bitácora?")) return
 
     try {
@@ -67,15 +85,46 @@ export default function InventarioPage() {
 
       toast({
         title: "MOVIMIENTO OCULTADO",
-        description: "El movimiento ya no aparecerá en la bitácora.",
+        description: "El movimiento ya no aparecerá en activos.",
         className: "bg-black text-primary border-primary border-2 font-black",
       })
-    } catch (error) {
-      console.error("Error al ocultar movimiento:", error)
+    } catch (error: any) {
+      console.error("ERROR REAL:", error)
 
       toast({
         title: "ERROR",
-        description: "No se pudo ocultar el movimiento.",
+        description: error?.message || "No se pudo ocultar el movimiento.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRestoreMovimiento = async (id: string) => {
+    if (!db || !user?.uid) return
+    if (!confirm("¿Restaurar este movimiento a la bitácora activa?")) return
+
+    try {
+      await updateDoc(
+        doc(db, "negocios", user.uid, "movimientosInventario", id),
+        {
+          activo: true,
+          restoredAt: serverTimestamp(),
+          restoredByUserId: user.uid,
+          restoredByUserEmail: user.email ?? "",
+        }
+      )
+
+      toast({
+        title: "MOVIMIENTO RESTAURADO",
+        description: "El movimiento volvió a la bitácora activa.",
+        className: "bg-green-600 text-white font-black",
+      })
+    } catch (error: any) {
+      console.error("ERROR AL RESTAURAR:", error)
+
+      toast({
+        title: "ERROR",
+        description: error?.message || "No se pudo restaurar el movimiento.",
         variant: "destructive",
       })
     }
@@ -92,19 +141,22 @@ export default function InventarioPage() {
     )
   }
 
+  const activeMovements = allMovements.filter((m: any) => m.activo !== false)
+  const hiddenMovements = allMovements.filter((m: any) => m.activo === false)
+
   const todayMovements =
-    movements.filter((m) => {
+    activeMovements.filter((m) => {
       const d = m.date?.seconds ? new Date(m.date.seconds * 1000) : new Date()
       return d.toDateString() === new Date().toDateString()
     }).length || 0
 
   const entradasMes =
-    movements
+    activeMovements
       .filter((m) => m.type === "entrada")
       .reduce((acc, m) => acc + Number(m.quantity || 0), 0) || 0
 
   const salidasVentas =
-    movements
+    activeMovements
       .filter((m) => m.type === "salida" || m.type === "venta")
       .reduce((acc, m) => acc + Number(m.quantity || 0), 0) || 0
 
@@ -147,7 +199,7 @@ export default function InventarioPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-none shadow-sm bg-white overflow-hidden">
           <CardHeader className="pb-2 bg-primary/5">
             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -186,13 +238,66 @@ export default function InventarioPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-none shadow-sm bg-white overflow-hidden">
+          <CardHeader className="pb-2 bg-orange-50">
+            <CardTitle className="text-[10px] font-black uppercase tracking-widest text-orange-600">
+              Ocultos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="text-3xl font-black tracking-tight text-orange-600">
+              {hiddenMovements.length}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
-          <History className="w-5 h-5 text-primary" />
-          Bitácora de Auditoría
-        </h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h2 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
+            <History className="w-5 h-5 text-primary" />
+            Bitácora de Auditoría
+          </h2>
+
+          <div className="flex bg-white rounded-2xl border-2 border-black/10 p-1 shadow-sm w-fit">
+            <Button
+              size="sm"
+              variant={filtroMovimientos === "activos" ? "default" : "ghost"}
+              className={cn(
+                "rounded-xl font-black uppercase text-[10px]",
+                filtroMovimientos === "activos" && "bg-black text-primary"
+              )}
+              onClick={() => setFiltroMovimientos("activos")}
+            >
+              Activos ({activeMovements.length})
+            </Button>
+
+            <Button
+              size="sm"
+              variant={filtroMovimientos === "ocultos" ? "default" : "ghost"}
+              className={cn(
+                "rounded-xl font-black uppercase text-[10px]",
+                filtroMovimientos === "ocultos" && "bg-orange-600 text-white"
+              )}
+              onClick={() => setFiltroMovimientos("ocultos")}
+            >
+              Ocultos ({hiddenMovements.length})
+            </Button>
+
+            <Button
+              size="sm"
+              variant={filtroMovimientos === "todos" ? "default" : "ghost"}
+              className={cn(
+                "rounded-xl font-black uppercase text-[10px]",
+                filtroMovimientos === "todos" && "bg-black text-white"
+              )}
+              onClick={() => setFiltroMovimientos("todos")}
+            >
+              Todos ({allMovements.length})
+            </Button>
+          </div>
+        </div>
 
         <div className="bg-white rounded-2xl shadow-xl border-none overflow-hidden">
           <Table>
@@ -211,6 +316,9 @@ export default function InventarioPage() {
                   Cantidad
                 </TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">
+                  Estado
+                </TableHead>
+                <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">
                   Motivo
                 </TableHead>
                 <TableHead className="text-white font-black uppercase text-[10px] tracking-widest h-14">
@@ -223,83 +331,119 @@ export default function InventarioPage() {
             </TableHeader>
 
             <TableBody>
-              {movements.map((mv: any) => (
-                <TableRow
-                  key={mv.id}
-                  className="hover:bg-primary/5 border-border/50"
-                >
-                  <TableCell className="text-[11px] font-bold">
-                    {mv.date?.seconds
-                      ? format(new Date(mv.date.seconds * 1000), "dd MMM, HH:mm", {
-                          locale: es,
-                        })
-                      : "..."}
-                  </TableCell>
+              {movements.map((mv: any) => {
+                const isHidden = mv.activo === false
 
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-black text-black uppercase text-xs">
-                        {mv.productName}
-                      </span>
-                      <span className="text-[9px] font-bold text-muted-foreground uppercase">
-                        {mv.codigo}
-                      </span>
-                    </div>
-                  </TableCell>
-
-                  <TableCell>
-                    <Badge
-                      className={cn(
-                        "font-black uppercase text-[9px] px-2",
-                        mv.type === "entrada"
-                          ? "bg-green-500"
-                          : mv.type === "salida"
-                            ? "bg-red-500"
-                            : mv.type === "venta"
-                              ? "bg-blue-500"
-                              : "bg-orange-500"
-                      )}
-                    >
-                      {mv.type}
-                    </Badge>
-                  </TableCell>
-
-                  <TableCell
+                return (
+                  <TableRow
+                    key={mv.id}
                     className={cn(
-                      "font-black text-lg",
-                      mv.type === "entrada" ? "text-green-600" : "text-red-600"
+                      "hover:bg-primary/5 border-border/50",
+                      isHidden && "bg-orange-50/60 opacity-80"
                     )}
                   >
-                    {mv.type === "entrada"
-                      ? `+${Number(mv.quantity || 0)}`
-                      : `-${Number(mv.quantity || 0)}`}
-                  </TableCell>
+                    <TableCell className="text-[11px] font-bold">
+                      {mv.date?.seconds
+                        ? format(new Date(mv.date.seconds * 1000), "dd MMM, HH:mm", {
+                            locale: es,
+                          })
+                        : "..."}
+                    </TableCell>
 
-                  <TableCell className="text-[10px] font-medium text-muted-foreground italic max-w-[200px] truncate">
-                    {mv.reason}
-                  </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span
+                          className={cn(
+                            "font-black text-black uppercase text-xs",
+                            isHidden && "line-through text-muted-foreground"
+                          )}
+                        >
+                          {mv.productName}
+                        </span>
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase">
+                          {mv.codigo}
+                        </span>
+                      </div>
+                    </TableCell>
 
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className="border-black/10 font-black text-[9px] uppercase"
+                    <TableCell>
+                      <Badge
+                        className={cn(
+                          "font-black uppercase text-[9px] px-2",
+                          mv.type === "entrada"
+                            ? "bg-green-500"
+                            : mv.type === "salida"
+                              ? "bg-red-500"
+                              : mv.type === "venta"
+                                ? "bg-blue-500"
+                                : "bg-orange-500"
+                        )}
+                      >
+                        {mv.type}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell
+                      className={cn(
+                        "font-black text-lg",
+                        mv.type === "entrada" ? "text-green-600" : "text-red-600"
+                      )}
                     >
-                      {mv.userEmail?.split("@")[0]}
-                    </Badge>
-                  </TableCell>
+                      {mv.type === "entrada"
+                        ? `+${Number(mv.quantity || 0)}`
+                        : `-${Number(mv.quantity || 0)}`}
+                    </TableCell>
 
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-red-600 hover:text-white rounded-lg"
-                      onClick={() => handleDeleteMovimiento(mv.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    <TableCell>
+                      <Badge
+                        className={cn(
+                          "font-black uppercase text-[9px] px-2",
+                          isHidden ? "bg-orange-600" : "bg-green-600"
+                        )}
+                      >
+                        {isHidden ? "Oculto" : "Activo"}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="text-[10px] font-medium text-muted-foreground italic max-w-[200px] truncate">
+                      {mv.reason}
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className="border-black/10 font-black text-[9px] uppercase"
+                      >
+                        {mv.userEmail?.split("@")[0]}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      {isHidden ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-green-600 hover:text-white rounded-lg"
+                          onClick={() => handleRestoreMovimiento(mv.id)}
+                          title="Restaurar movimiento"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-red-600 hover:text-white rounded-lg"
+                          onClick={() => handleDeleteMovimiento(mv.id)}
+                          title="Ocultar movimiento"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
 
@@ -307,7 +451,7 @@ export default function InventarioPage() {
             <div className="p-20 text-center flex flex-col items-center gap-4 text-muted-foreground">
               <History className="w-16 h-16 opacity-10" />
               <p className="font-black uppercase italic tracking-tighter">
-                Sin movimientos registrados
+                Sin movimientos en este filtro
               </p>
             </div>
           )}
