@@ -11,7 +11,6 @@ import {
   PackageSearch 
 } from 'lucide-react'
 
-// Datos de ejemplo para la interfaz
 const stats = {
   ventasHoy: 12540.50,
   ticketsHoy: 24,
@@ -23,7 +22,6 @@ const stats = {
   ]
 }
 
-// Lógica para el Ticket Promedio: Formato MXN con exactamente 2 decimales
 const ticketPromedio = stats.ticketsHoy > 0 ? stats.ventasHoy / stats.ticketsHoy : 0
 
 export default function Dashboard() {
@@ -44,15 +42,18 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* TICKET PROMEDIO CON FORMATO MXN */}
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
             <TrendingUp className="w-16 h-16 text-[#FFD600]" />
           </div>
           <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">Ticket Promedio</p>
           <h3 className="text-4xl font-black text-white italic">
-            ${ticketPromedio.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {ticketPromedio.toLocaleString('es-MX', { 
+              style: 'currency', 
+              currency: 'MXN',
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}
           </h3>
           <div className="mt-2 flex items-center gap-1 text-[#FFD600] text-[10px] font-bold">
             <ArrowUpRight className="w-3 h-3" />
@@ -79,7 +80,12 @@ export default function Dashboard() {
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl">
           <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest mb-1">Ingresos del Día</p>
           <h3 className="text-4xl font-black text-[#FFD600] italic">
-            ${stats.ventasHoy.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {stats.ventasHoy.toLocaleString('es-MX', { 
+              style: 'currency', 
+              currency: 'MXN',
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            })}
           </h3>
           <p className="mt-2 text-zinc-500 text-[10px] font-medium uppercase tracking-tighter">
             Actualizado en tiempo real

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { Search, ShoppingCart, Package, Hammer, X, Loader2, Lock, PlusCircle, AlertCircle, Camera, Smartphone, Wifi, Plus, Printer, CheckCircle2 } from "lucide-react"
+import { Search, Camera, Smartphone, Wifi, Plus, Printer, CheckCircle2, Loader2, Hammer, PlusCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { POSCart } from "@/components/pos/pos-cart"
@@ -12,9 +12,8 @@ import { TicketView } from "@/components/pos/ticket-view"
 import { Product, SaleItem, RemoteScan, Sale } from "@/types"
 import { useToast } from "@/hooks/use-toast"
 import { useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase"
-import { collection, query, where, limit, addDoc, serverTimestamp, onSnapshot, doc, deleteDoc } from "firebase/firestore"
+import { collection, query, where, limit, onSnapshot, doc, deleteDoc } from "firebase/firestore"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { ToastAction } from "@/components/ui/toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -78,14 +77,6 @@ export default function POSPage() {
       return () => clearInterval(focusInterval)
     }
   }, [user, isUserLoading, isPaymentOpen, isScannerOpen, isAddProductOpen, lastSale])
-
-  const filteredProducts = useMemo(() => {
-    if (!products) return []
-    return products.filter(p => 
-      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [products, searchTerm])
 
   const playBeep = (freq = 880, dur = 0.15) => {
     try {
@@ -174,8 +165,8 @@ export default function POSPage() {
   }
 
   const total = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0);
-  }, [cart]);
+    return cart.reduce((acc, item) => acc + (Number(item.subtotal) || 0), 0)
+  }, [cart])
 
   const handleFinishSale = (saleData: Sale) => {
     playBeep(880, 0.2);
@@ -184,6 +175,14 @@ export default function POSPage() {
     setLastSale(saleData)
     toast({ title: "VENTA REGISTRADA", className: "bg-black text-primary font-black" })
   }
+
+  const filteredProducts = useMemo(() => {
+    if (!products) return []
+    return products.filter(p => 
+      p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.codigo.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [products, searchTerm])
 
   if (!mounted || isUserLoading) {
     return (

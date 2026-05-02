@@ -60,16 +60,21 @@ export default function InventarioPage() {
   const { data: movementsRaw, isLoading } =
     useCollection<InventoryMovement>(movementsQuery)
 
-  const allMovements = movementsRaw || []
+  const allMovements = (movementsRaw || []).filter(Boolean) as any[]
 
-  const movements = allMovements.filter((mv: any) => {
+  const activeMovements = allMovements.filter((m) => m?.activo !== false)
+  const hiddenMovements = allMovements.filter((m) => m?.activo === false)
+
+  const movements = allMovements.filter((mv) => {
+    if (!mv) return false
     if (filtroMovimientos === "activos") return mv.activo !== false
     if (filtroMovimientos === "ocultos") return mv.activo === false
     return true
   })
 
-  const handleDeleteMovimiento = async (id: string) => {
-    if (!db || !user?.uid) return
+  const handleDeleteMovimiento = async (id?: string) => {
+    if (!db || !user?.uid || !id) return
+
     if (!confirm("¿Ocultar este movimiento de la bitácora?")) return
 
     try {
@@ -99,8 +104,9 @@ export default function InventarioPage() {
     }
   }
 
-  const handleRestoreMovimiento = async (id: string) => {
-    if (!db || !user?.uid) return
+  const handleRestoreMovimiento = async (id?: string) => {
+    if (!db || !user?.uid || !id) return
+
     if (!confirm("¿Restaurar este movimiento a la bitácora activa?")) return
 
     try {
@@ -141,24 +147,23 @@ export default function InventarioPage() {
     )
   }
 
-  const activeMovements = allMovements.filter((m: any) => m.activo !== false)
-  const hiddenMovements = allMovements.filter((m: any) => m.activo === false)
-
   const todayMovements =
     activeMovements.filter((m) => {
-      const d = m.date?.seconds ? new Date(m.date.seconds * 1000) : new Date()
+      const d = m?.date?.seconds
+        ? new Date(m.date.seconds * 1000)
+        : new Date()
       return d.toDateString() === new Date().toDateString()
     }).length || 0
 
   const entradasMes =
     activeMovements
-      .filter((m) => m.type === "entrada")
-      .reduce((acc, m) => acc + Number(m.quantity || 0), 0) || 0
+      .filter((m) => m?.type === "entrada")
+      .reduce((acc, m) => acc + Number(m?.quantity || 0), 0) || 0
 
   const salidasVentas =
     activeMovements
-      .filter((m) => m.type === "salida" || m.type === "venta")
-      .reduce((acc, m) => acc + Number(m.quantity || 0), 0) || 0
+      .filter((m) => m?.type === "salida" || m?.type === "venta")
+      .reduce((acc, m) => acc + Number(m?.quantity || 0), 0) || 0
 
   return (
     <div className="p-6 lg:p-10 space-y-8 bg-[#f8f9fa] min-h-full">
@@ -332,11 +337,14 @@ export default function InventarioPage() {
 
             <TableBody>
               {movements.map((mv: any) => {
+                if (!mv) return null
+
                 const isHidden = mv.activo === false
+                const movementId = mv.id || ""
 
                 return (
                   <TableRow
-                    key={mv.id}
+                    key={movementId || `${mv.productName}-${mv.date?.seconds || Math.random()}`}
                     className={cn(
                       "hover:bg-primary/5 border-border/50",
                       isHidden && "bg-orange-50/60 opacity-80"
@@ -347,7 +355,7 @@ export default function InventarioPage() {
                         ? format(new Date(mv.date.seconds * 1000), "dd MMM, HH:mm", {
                             locale: es,
                           })
-                        : "..."}
+                        : "Sin fecha"}
                     </TableCell>
 
                     <TableCell>
@@ -358,10 +366,10 @@ export default function InventarioPage() {
                             isHidden && "line-through text-muted-foreground"
                           )}
                         >
-                          {mv.productName}
+                          {mv.productName || "Producto"}
                         </span>
                         <span className="text-[9px] font-bold text-muted-foreground uppercase">
-                          {mv.codigo}
+                          {mv.codigo || "---"}
                         </span>
                       </div>
                     </TableCell>
@@ -379,7 +387,7 @@ export default function InventarioPage() {
                                 : "bg-orange-500"
                         )}
                       >
-                        {mv.type}
+                        {mv.type || "movimiento"}
                       </Badge>
                     </TableCell>
 
@@ -406,7 +414,7 @@ export default function InventarioPage() {
                     </TableCell>
 
                     <TableCell className="text-[10px] font-medium text-muted-foreground italic max-w-[200px] truncate">
-                      {mv.reason}
+                      {mv.reason || "Sin motivo"}
                     </TableCell>
 
                     <TableCell>
@@ -414,7 +422,7 @@ export default function InventarioPage() {
                         variant="outline"
                         className="border-black/10 font-black text-[9px] uppercase"
                       >
-                        {mv.userEmail?.split("@")[0]}
+                        {mv.userEmail?.split("@")[0] || "usuario"}
                       </Badge>
                     </TableCell>
 
@@ -424,8 +432,9 @@ export default function InventarioPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 hover:bg-green-600 hover:text-white rounded-lg"
-                          onClick={() => handleRestoreMovimiento(mv.id)}
+                          onClick={() => handleRestoreMovimiento(movementId)}
                           title="Restaurar movimiento"
+                          disabled={!movementId}
                         >
                           <RotateCcw className="w-4 h-4" />
                         </Button>
@@ -434,8 +443,9 @@ export default function InventarioPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 hover:bg-red-600 hover:text-white rounded-lg"
-                          onClick={() => handleDeleteMovimiento(mv.id)}
+                          onClick={() => handleDeleteMovimiento(movementId)}
                           title="Ocultar movimiento"
+                          disabled={!movementId}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
